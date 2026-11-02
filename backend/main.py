@@ -44,7 +44,7 @@ app = FastAPI(
 # Apply Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# Apply CORS Middleware (Allows credentials with localhost/127.0.0.1 without throwing Starlette origin errors)
+# Apply CORS Middleware (Allows credentials with localhost/127.0.0.1 and Render cloud deployments)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -54,9 +54,10 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:8000",
-        "http://127.0.0.1:8000"
+        "http://127.0.0.1:8000",
+        "*"
     ],
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.onrender\.com)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

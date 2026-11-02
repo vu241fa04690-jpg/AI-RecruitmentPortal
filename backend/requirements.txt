@@ -13,3 +13,4 @@ bcrypt>=4.0.1
 pyjwt>=2.8.0
 dnspython>=2.6.0
 certifi>=2024.0.0
+gunicorn>=22.0.0
