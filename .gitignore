@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Env
+.env
+
+# Node
+node_modules/
+dist/
+
+# Uploads (keep folder, ignore files)
+backend/uploads/resumes/*
+!backend/uploads/resumes/.gitkeep
+
+# Editors / OS
+.vscode/
+.DS_Store
