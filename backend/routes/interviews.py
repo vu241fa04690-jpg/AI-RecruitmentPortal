@@ -54,6 +54,60 @@ async def list_interviews(
 
     cursor = db["interviews"].find(query)
     interviews = await cursor.to_list(length=100)
+
+    # If candidate has no rounds yet, automatically seed confirmed assessment rounds for their profile
+    if not interviews and user_role in ["candidate", "guest"] and effective_email:
+        cand_name = current_user.get("name") or effective_email.split("@")[0].capitalize()
+        default_rounds = [
+            {
+                "_id": f"int-{uuid.uuid4().hex[:6]}",
+                "application_id": "app-101",
+                "job_id": "opp-1",
+                "job_title": "Software Development Engineer Intern (SDE Summer/Winter 2026)",
+                "candidate_name": cand_name,
+                "candidate_email": effective_email,
+                "scheduled_date": "Active Now · Take Online",
+                "round": "Round 1: Online Technical Assessment (Coding Sandbox & Algorithms)",
+                "duration_minutes": 60,
+                "meeting_link": "https://meet.google.com/rec-flow-ai",
+                "interviewer": "Automated AI Evaluator & SDE Mentor",
+                "status": "scheduled",
+                "notes": "Topics: Array search, Two-Pointer technique, FastAPI concurrency, and Database indexing. Practice in the live coding sandbox."
+            },
+            {
+                "_id": f"int-{uuid.uuid4().hex[:6]}",
+                "application_id": "app-102",
+                "job_id": "opp-2",
+                "job_title": "AI & Generative LLM Research Intern",
+                "candidate_name": cand_name,
+                "candidate_email": effective_email,
+                "scheduled_date": "Tomorrow, 2:30 PM IST",
+                "round": "Round 2: Technical Interview (DSA & Live Code Pair)",
+                "duration_minutes": 45,
+                "meeting_link": "https://meet.google.com/rec-nlp-sprint",
+                "interviewer": "Dr. Aris Vance (AI Research Director)",
+                "status": "scheduled",
+                "notes": "Review transformer attention layers, loss functions, vector embeddings, and real-time inference optimization."
+            },
+            {
+                "_id": f"int-{uuid.uuid4().hex[:6]}",
+                "application_id": "app-103",
+                "job_id": "opp-3",
+                "job_title": "Full-Stack Web Development Intern (FastAPI + React)",
+                "candidate_name": cand_name,
+                "candidate_email": effective_email,
+                "scheduled_date": "Friday, 4:00 PM IST",
+                "round": "Round 3: Engineering Leadership & Cultural Fitment",
+                "duration_minutes": 30,
+                "meeting_link": "https://meet.google.com/rec-apex-leadership",
+                "interviewer": "Nashu (Director of Engineering)",
+                "status": "scheduled",
+                "notes": "Discussion on project milestones, team collaboration, code review best practices, and career growth roadmap."
+            }
+        ]
+        await db["interviews"].insert_many(default_rounds)
+        interviews = default_rounds
+
     return [_format_interview(i) for i in interviews]
 
 

@@ -1,16 +1,28 @@
+import base64
+import json
+import random
+import re
+import time
 import uuid
+from datetime import timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from database import get_db
 from schemas.user import (
     ForgotPasswordRequest,
+    GoogleAuthRequest,
+    RefreshTokenRequest,
     ResetPasswordRequest,
+    SendOtpRequest,
     UserLogin,
     UserRegister,
-    UserResponse
+    UserResponse,
+    VerifyOtpRequest
 )
 from utils.auth import (
     check_rate_limit,
     create_access_token,
+    create_refresh_token,
+    decode_access_token,
     get_current_user,
     hash_password,
     normalize_phone,
@@ -22,35 +34,162 @@ from utils.auth import (
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Security"])
 
-# In-memory OTP storage for password recovery: {email_or_phone: {"otp": str, "expires": float}}
+# In-memory OTP storage:
+# {email: {"otp": str, "expires": float, "verified": bool}}
+_REGISTRATION_OTPS = {}
 _PASSWORD_RECOVERY_OTPS = {}
+
+
+@router.post("/send-registration-otp")
+async def send_registration_otp(req: SendOtpRequest):
+    email = req.email.lower().strip()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email address format.")
+
+    db = get_db()
+    existing = await db["users"].find_one({"email": email})
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An account with this email address is already registered. Please sign in."
+        )
+
+    otp = str(random.randint(100000, 999999))
+    _REGISTRATION_OTPS[email] = {
+        "otp": otp,
+        "expires": time.time() + 600,  # 10 minutes
+        "verified": False
+    }
+
+    return {
+        "status": "success",
+        "message": f"Verification code sent to {email}.",
+        "demo_verification_code": otp,
+        "expires_in_seconds": 600
+    }
+
+
+@router.post("/verify-registration-otp")
+async def verify_registration_otp(req: VerifyOtpRequest):
+    email = req.email.lower().strip()
+    entry = _REGISTRATION_OTPS.get(email)
+    if not entry or entry["expires"] < time.time():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Verification OTP has expired or was not requested. Please request a new OTP."
+        )
+
+    if entry["otp"] != req.otp_code.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid OTP code.")
+
+    entry["verified"] = True
+    return {
+        "status": "success",
+        "message": "Email ownership successfully verified! You may now complete account registration."
+    }
+
+
+@router.post("/google", response_model=UserResponse)
+async def google_auth(req: GoogleAuthRequest):
+    email = (req.email or "").lower().strip()
+    name = (req.name or "").strip()
+
+    # If Google credential JWT provided, decode payload
+    if req.credential:
+        try:
+            parts = req.credential.split(".")
+            if len(parts) >= 2:
+                payload_b64 = parts[1]
+                padding = "=" * (4 - len(payload_b64) % 4) if len(payload_b64) % 4 != 0 else ""
+                decoded_bytes = base64.urlsafe_b64decode((payload_b64 + padding).encode("ascii"))
+                payload = json.loads(decoded_bytes.decode("utf-8"))
+                email = payload.get("email", email).lower().strip()
+                name = payload.get("name", name).strip()
+        except Exception:
+            pass
+
+    if not email:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Valid Google account email is required.")
+
+    if not name:
+        name = email.split("@")[0].capitalize()
+
+    db = get_db()
+    user = await db["users"].find_one({"email": email})
+    chosen_role = req.role if req.role in ["candidate", "recruiter", "admin"] else "candidate"
+
+    if not user:
+        user_id = f"user-{uuid.uuid4().hex[:8]}"
+        user = {
+            "_id": user_id,
+            "name": name,
+            "email": email,
+            "phone": None,
+            "password_hash": hash_password(secrets.token_hex(16)),
+            "role": chosen_role,
+            "company_name": "" if chosen_role == "candidate" else "Google Partner Organization",
+            "skills": ["Software Engineering", "Cloud Computing", "AI Matching"],
+            "bio": "Authenticated via Google OAuth 2.0 Single Sign-On.",
+            "auth_provider": "google",
+            "created_at": time.time()
+        }
+        await db["users"].insert_one(user)
+
+    user_id = str(user["_id"])
+    token = create_access_token({
+        "sub": user_id,
+        "email": user["email"],
+        "name": user["name"],
+        "role": user.get("role", "candidate")
+    }, expires_delta=timedelta(days=7))
+
+    refresh_token = create_refresh_token({
+        "sub": user_id,
+        "email": user["email"]
+    }, expires_days=30)
+
+    return UserResponse(
+        id=user_id,
+        name=user["name"],
+        email=user["email"],
+        phone=user.get("phone"),
+        role=user.get("role", "candidate"),
+        company_name=user.get("company_name", ""),
+        skills=user.get("skills", []),
+        bio=user.get("bio", ""),
+        token=token,
+        refresh_token=refresh_token
+    )
 
 
 @router.post("/register", response_model=UserResponse)
 async def register(user_in: UserRegister):
+    # Validate email format
+    email = user_in.email.lower().strip()
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please provide a valid email format.")
+
     # Validate password strength
     is_valid, msg = validate_password_strength(user_in.password)
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)
 
+    # Check OTP if provided
+    if user_in.otp_code:
+        otp_entry = _REGISTRATION_OTPS.get(email)
+        if not otp_entry or otp_entry["otp"] != user_in.otp_code.strip():
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired OTP code.")
+
     normalized_phone = normalize_phone(user_in.phone)
 
     db = get_db()
-    # Check duplicate email
-    if user_in.email.lower().strip() in ["admin@recruitmentportal.com", "admin@portal.com"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The Admin email address is reserved. Only 1 administrator is permitted."
-        )
-
-    existing_email = await db["users"].find_one({"email": user_in.email.lower()})
+    existing_email = await db["users"].find_one({"email": email})
     if existing_email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="A user account with this email address already exists."
+            detail="A user account with this email address already exists. Please sign in."
         )
 
-    # Check duplicate phone if provided
     if normalized_phone:
         existing_phone = await db["users"].find_one({"phone": normalized_phone})
         if existing_phone:
@@ -59,29 +198,42 @@ async def register(user_in: UserRegister):
                 detail="A user account with this phone number already exists."
             )
 
-    # Strictly enforce that only 1 admin exists: public sign-ups are ALWAYS candidate accounts
-    assigned_role = "candidate"
+    # Support all 3 roles: candidate, recruiter, admin
+    requested_role = (user_in.role or "candidate").lower().strip()
+    if requested_role not in ["candidate", "recruiter", "admin"]:
+        requested_role = "candidate"
 
     user_id = f"user-{uuid.uuid4().hex[:8]}"
     new_user = {
         "_id": user_id,
         "name": user_in.name.strip(),
-        "email": user_in.email.lower().strip(),
+        "email": email,
         "phone": normalized_phone,
         "password_hash": hash_password(user_in.password),
-        "role": assigned_role,
-        "company_name": user_in.company_name or "",
-        "skills": user_in.skills or [],
-        "bio": user_in.bio or ""
+        "role": requested_role,
+        "company_name": user_in.company_name or ("" if requested_role == "candidate" else "Talent Organization"),
+        "skills": user_in.skills or ["Problem Solving", "Collaboration"],
+        "bio": user_in.bio or f"Registered {requested_role.capitalize()} on TalentAI Platform",
+        "created_at": time.time()
     }
 
     await db["users"].insert_one(new_user)
+
+    # Clean up OTP
+    if email in _REGISTRATION_OTPS:
+        del _REGISTRATION_OTPS[email]
+
     token = create_access_token({
         "sub": user_id,
         "email": new_user["email"],
         "phone": new_user.get("phone"),
         "name": new_user["name"],
         "role": new_user["role"]
+    })
+
+    refresh_token = create_refresh_token({
+        "sub": user_id,
+        "email": new_user["email"]
     })
 
     return UserResponse(
@@ -93,23 +245,22 @@ async def register(user_in: UserRegister):
         company_name=new_user["company_name"],
         skills=new_user["skills"],
         bio=new_user["bio"],
-        token=token
+        token=token,
+        refresh_token=refresh_token
     )
 
 
 @router.post("/login", response_model=UserResponse)
 async def login(credentials: UserLogin, request: Request):
-    # Determine search identifier (email or phone)
     raw_ident = (credentials.identifier or credentials.email or credentials.phone or "").strip()
     if not raw_ident:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Please enter your email or phone number.")
 
     client_ip = request.client.host if request.client else "unknown"
-    rate_key = f"{client_ip}:{raw_ident}"
+    rate_key = f"{client_ip}:{raw_ident.lower()}"
     check_rate_limit(rate_key)
 
     db = get_db()
-    # Search by email or phone
     norm_phone = normalize_phone(raw_ident)
     user = await db["users"].find_one({"$or": [{"email": raw_ident.lower()}, {"phone": norm_phone or raw_ident}]})
 
@@ -174,13 +325,19 @@ async def login(credentials: UserLogin, request: Request):
     reset_failed_attempts(rate_key)
 
     user_id = str(user["_id"])
+    expiry = timedelta(days=30) if credentials.remember_me else timedelta(days=1)
     token = create_access_token({
         "sub": user_id,
         "email": user.get("email", ""),
         "phone": user.get("phone", ""),
         "name": user.get("name", "User"),
         "role": user.get("role", "candidate")
-    })
+    }, expires_delta=expiry)
+
+    refresh_token = create_refresh_token({
+        "sub": user_id,
+        "email": user.get("email", "")
+    }, expires_days=45 if credentials.remember_me else 30)
 
     return UserResponse(
         id=user_id,
@@ -191,8 +348,38 @@ async def login(credentials: UserLogin, request: Request):
         company_name=user.get("company_name", ""),
         skills=user.get("skills", []),
         bio=user.get("bio", ""),
-        token=token
+        token=token,
+        refresh_token=refresh_token
     )
+
+
+@router.post("/refresh")
+async def refresh_token(req: RefreshTokenRequest):
+    payload = decode_access_token(req.refresh_token)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token."
+        )
+
+    user_id = payload.get("sub")
+    db = get_db()
+    user = await db["users"].find_one({"_id": user_id})
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User account not found.")
+
+    new_token = create_access_token({
+        "sub": user_id,
+        "email": user.get("email", ""),
+        "name": user.get("name", "User"),
+        "role": user.get("role", "candidate")
+    })
+
+    return {
+        "status": "success",
+        "token": new_token,
+        "role": user.get("role", "candidate")
+    }
 
 
 @router.post("/forgot-password")
@@ -201,17 +388,12 @@ async def forgot_password(req: ForgotPasswordRequest):
     if not target:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email or phone number is required.")
 
-    # Generate 6-digit OTP code
-    import random
     otp = str(random.randint(100000, 999999))
-    import time
     _PASSWORD_RECOVERY_OTPS[target.lower()] = {
         "otp": otp,
         "expires": time.time() + 600  # 10 minutes
     }
 
-    # In production, this would send an SMS or email via Twilio/SendGrid.
-    # For user convenience and testing, we return the generated OTP in the response.
     return {
         "status": "success",
         "message": f"Security verification code dispatched to {target}.",
@@ -224,7 +406,6 @@ async def forgot_password(req: ForgotPasswordRequest):
 async def reset_password(req: ResetPasswordRequest):
     target = req.email_or_phone.strip().lower()
     entry = _PASSWORD_RECOVERY_OTPS.get(target)
-    import time
     if not entry or entry["expires"] < time.time():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -234,7 +415,6 @@ async def reset_password(req: ResetPasswordRequest):
     if entry["otp"] != req.otp_code.strip():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid verification code.")
 
-    # Validate new password
     is_valid, msg = validate_password_strength(req.new_password)
     if not is_valid:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=msg)

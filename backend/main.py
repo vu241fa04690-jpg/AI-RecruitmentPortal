@@ -8,6 +8,7 @@ from database import close_mongo_connection, connect_to_mongo, get_storage_statu
 from routes.ai import router as ai_router
 from routes.analytics import router as analytics_router
 from routes.applications import router as applications_router
+from routes.assignments import router as assignments_router
 from routes.auth import router as auth_router
 from routes.interviews import router as interviews_router
 from routes.jobs import router as jobs_router
@@ -67,6 +68,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api")
 app.include_router(jobs_router, prefix="/api")
 app.include_router(applications_router, prefix="/api")
+app.include_router(assignments_router, prefix="/api")
 app.include_router(interviews_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
 app.include_router(analytics_router, prefix="/api")

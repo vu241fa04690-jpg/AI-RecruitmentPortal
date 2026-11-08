@@ -1326,6 +1326,59 @@ export const api = {
     let list = [...mockInterviews];
     if (params.candidate_email) {
       list = list.filter(i => i.candidate_email && i.candidate_email.toLowerCase() === params.candidate_email.toLowerCase());
+      if (list.length === 0) {
+        const em = params.candidate_email;
+        const cName = em.split("@")[0].charAt(0).toUpperCase() + em.split("@")[0].slice(1);
+        const seeded = [
+          {
+            id: `int-${Date.now()}-1`,
+            application_id: "app-101",
+            job_id: "opp-1",
+            job_title: "Software Development Engineer Intern (SDE Summer/Winter 2026)",
+            candidate_name: cName,
+            candidate_email: em,
+            scheduled_date: "Active Now · Take Online",
+            round: "Round 1: Online Technical Assessment (Coding Sandbox & Algorithms)",
+            duration_minutes: 60,
+            meeting_link: "https://meet.google.com/rec-flow-ai",
+            interviewer: "Automated AI Evaluator & SDE Mentor",
+            status: "scheduled",
+            notes: "Topics: Array search, Two-Pointer technique, FastAPI concurrency, and Database indexing. Practice in the live coding sandbox."
+          },
+          {
+            id: `int-${Date.now()}-2`,
+            application_id: "app-102",
+            job_id: "opp-2",
+            job_title: "AI & Generative LLM Research Intern",
+            candidate_name: cName,
+            candidate_email: em,
+            scheduled_date: "Tomorrow, 2:30 PM IST",
+            round: "Round 2: Technical Interview (DSA & Live Code Pair)",
+            duration_minutes: 45,
+            meeting_link: "https://meet.google.com/rec-nlp-sprint",
+            interviewer: "Dr. Aris Vance (AI Research Director)",
+            status: "scheduled",
+            notes: "Review transformer attention layers, loss functions, vector embeddings, and real-time inference optimization."
+          },
+          {
+            id: `int-${Date.now()}-3`,
+            application_id: "app-103",
+            job_id: "opp-3",
+            job_title: "Full-Stack Web Development Intern (FastAPI + React)",
+            candidate_name: cName,
+            candidate_email: em,
+            scheduled_date: "Friday, 4:00 PM IST",
+            round: "Round 3: Engineering Leadership & Cultural Fitment",
+            duration_minutes: 30,
+            meeting_link: "https://meet.google.com/rec-apex-leadership",
+            interviewer: "Nashu (Director of Engineering)",
+            status: "scheduled",
+            notes: "Discussion on project milestones, team collaboration, code review best practices, and career growth roadmap."
+          }
+        ];
+        mockInterviews.push(...seeded);
+        list = seeded;
+      }
     }
     return list;
   },

@@ -100,7 +100,23 @@ def create_access_token(data: Dict[str, Any], expires_delta: Optional[timedelta]
         expire = datetime.now(timezone.utc) + expires_delta
     else:
         expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": int(expire.timestamp())})
+    to_encode.update({"exp": int(expire.timestamp()), "type": "access"})
+
+    header = {"alg": "HS256", "typ": "JWT"}
+    header_b64 = _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
+    payload_b64 = _base64url_encode(json.dumps(to_encode, separators=(",", ":")).encode("utf-8"))
+
+    signing_input = f"{header_b64}.{payload_b64}".encode("ascii")
+    signature = hmac.new(settings.SECRET_KEY.encode("utf-8"), signing_input, hashlib.sha256).digest()
+    signature_b64 = _base64url_encode(signature)
+
+    return f"{header_b64}.{payload_b64}.{signature_b64}"
+
+
+def create_refresh_token(data: Dict[str, Any], expires_days: int = 30) -> str:
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=expires_days)
+    to_encode.update({"exp": int(expire.timestamp()), "type": "refresh"})
 
     header = {"alg": "HS256", "typ": "JWT"}
     header_b64 = _base64url_encode(json.dumps(header, separators=(",", ":")).encode("utf-8"))
