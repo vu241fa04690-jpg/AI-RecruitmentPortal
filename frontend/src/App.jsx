@@ -132,6 +132,10 @@ function MainApp() {
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+        onNavigateCategory={(cat) => {
+          setInitialJobFilter({ category: cat });
+          setActiveTab("jobs");
+        }}
         user={user}
         userRole={userRole}
         setUserRole={handleRoleChange}

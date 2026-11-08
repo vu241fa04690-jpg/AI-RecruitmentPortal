@@ -53,6 +53,7 @@ export default function JobBoard({
   useEffect(() => {
     if (initialFilter?.query) setSearch(initialFilter.query);
     if (initialFilter?.location) setLocationSearch(initialFilter.location);
+    if (initialFilter?.category) setCategoryFilter(initialFilter.category);
   }, [initialFilter]);
 
   // Sync applied & saved jobs specific to candidate account
@@ -361,13 +362,14 @@ export default function JobBoard({
           {/* Filter 1: Domain Track */}
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
-              Domain & Engineering Track
+              Domain & Track
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 { id: "all", label: "All Engineering Tracks" },
-                { id: "software", label: "💻 Software & AI" },
+                { id: "software", label: "💻 Software, AI & Web" },
                 { id: "business", label: "📈 Product & Growth" },
+                { id: "design", label: "🎨 UI/UX & Design" },
                 { id: "hardware", label: "🔌 Hardware & Robotics" }
               ].map(d => (
                 <button
@@ -380,7 +382,7 @@ export default function JobBoard({
                     fontSize: 12.5,
                     fontWeight: domainFilter === d.id ? 800 : 500,
                     background: domainFilter === d.id ? "#EEF2FF" : "transparent",
-                    color: domainFilter === d.id ? "#3157D5" : "#475569",
+                    color: domainFilter === d.id ? "#1D4ED8" : "#475569",
                     border: "none"
                   }}
                 >
@@ -390,16 +392,18 @@ export default function JobBoard({
             </div>
           </div>
 
-          {/* Filter 2: Opportunity Type */}
+          {/* Filter 2: Opportunity Type (Unstop Categories) */}
           <div style={{ marginBottom: 20 }}>
             <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
               Opportunity Type
             </label>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {[
-                { id: "all", label: "All Types" },
+                { id: "all", label: "All Opportunities" },
+                { id: "job", label: "💼 Full-Time Jobs" },
                 { id: "internship", label: "🎓 Internships & PPO" },
-                { id: "job", label: "👔 Full-Time Jobs" }
+                { id: "hackathon", label: "⚡ Hackathons & Coding" },
+                { id: "competition", label: "🏆 Competitions" }
               ].map(c => (
                 <button
                   key={c.id}
@@ -411,7 +415,7 @@ export default function JobBoard({
                     fontSize: 12.5,
                     fontWeight: categoryFilter === c.id ? 800 : 500,
                     background: categoryFilter === c.id ? "#EEF2FF" : "transparent",
-                    color: categoryFilter === c.id ? "#3157D5" : "#475569",
+                    color: categoryFilter === c.id ? "#1D4ED8" : "#475569",
                     border: "none"
                   }}
                 >
