@@ -486,14 +486,14 @@ export default function ResumeMatcher({
         </div>
       )}
 
-      {/* Header Banner (Unstop Navy Style) */}
+      {/* Header Banner (TalentAI Royal Blue & Navy) */}
       <div style={{
-        background: "linear-gradient(135deg, #0f2b48 0%, #0066cc 60%, #00b4d8 100%)",
+        background: "linear-gradient(135deg, #172554 0%, #1E3A8A 50%, #3157D5 100%)",
         borderRadius: 22,
         padding: "32px 36px",
         color: "#ffffff",
         marginBottom: 30,
-        boxShadow: "0 10px 30px rgba(0, 102, 204, 0.28)",
+        boxShadow: "0 12px 32px rgba(49, 87, 213, 0.25)",
         position: "relative",
         overflow: "hidden"
       }}>

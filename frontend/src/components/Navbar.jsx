@@ -26,6 +26,7 @@ export default function Navbar({
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -50,67 +51,127 @@ export default function Navbar({
     setUnreadCount(0);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
+
+  const isRecruiterOrAdmin = userRole === "admin" || userRole === "recruiter";
+
   return (
     <header style={{
-      background: "linear-gradient(180deg, #0f2b48 0%, #0a1f36 100%)",
-      color: "#ffffff",
+      background: "#172554", /* Deep Navy */
+      color: "#FFFFFF",
       position: "sticky",
       top: 0,
       zIndex: 100,
-      borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-      boxShadow: "0 4px 20px rgba(10, 31, 54, 0.35)"
+      borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
+      boxShadow: "0 4px 20px rgba(15, 23, 42, 0.25)"
     }}>
-      {/* Tier 1: Brand & Utility Bar */}
+      {/* Tier 1: Main Header & Brand Bar */}
       <div style={{
-        maxWidth: 1400,
+        maxWidth: 1380,
         margin: "0 auto",
-        padding: "10px 24px",
+        padding: "12px 24px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        gap: 16,
-        borderBottom: "1px solid rgba(255, 255, 255, 0.08)"
+        gap: 16
       }}>
-        {/* Brand: Recruitment Portal */}
+        {/* TalentAI Brand Logo */}
         <div
           style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", flexShrink: 0 }}
-          onClick={() => setActiveTab(userRole === "recruiter" ? "recruiter-dashboard" : userRole === "admin" ? "admin-dashboard" : "jobs")}
+          onClick={() => setActiveTab(user ? (isRecruiterOrAdmin ? "recruiter-dashboard" : "candidate-dashboard") : "landing")}
         >
           <div style={{
-            background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)",
-            width: 38,
-            height: 38,
-            borderRadius: 10,
+            background: "linear-gradient(135deg, #3157D5 0%, #7657E8 100%)",
+            width: 40,
+            height: 40,
+            borderRadius: 12,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            boxShadow: "0 0 16px rgba(0, 180, 216, 0.45)"
+            boxShadow: "0 4px 16px rgba(118, 87, 232, 0.45)"
           }}>
-            <SparklesIcon size={22} color="#ffffff" />
+            <SparklesIcon size={22} color="#FFFFFF" />
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 19, fontWeight: 900, letterSpacing: -0.5, color: "#ffffff" }}>
-                Recruitment<span style={{ color: "#38bdf8" }}>Portal</span>
+              <span style={{ fontSize: 21, fontWeight: 900, letterSpacing: -0.6, color: "#FFFFFF", fontFamily: "'Poppins', sans-serif" }}>
+                Talent<span style={{ color: "#7657E8" }}>AI</span>
               </span>
               <span style={{
-                background: "linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(0, 102, 204, 0.25))",
-                color: "#38bdf8",
+                background: "linear-gradient(135deg, rgba(118, 87, 232, 0.25), rgba(49, 87, 213, 0.35))",
+                color: "#A78BFA",
                 fontSize: 10,
                 fontWeight: 800,
-                padding: "2px 7px",
-                borderRadius: 5,
-                border: "1px solid rgba(56, 189, 248, 0.35)",
+                padding: "2px 8px",
+                borderRadius: 6,
+                border: "1px solid rgba(167, 139, 250, 0.35)",
                 letterSpacing: 0.5
               }}>
-                AI HUB
+                PRO V2
               </span>
             </div>
-            <p style={{ fontSize: 11, color: "#93c5fd", lineHeight: 1, margin: "2px 0 0" }}>Jobs, Internships & Multi-Round Interviews</p>
+            <p style={{ fontSize: 11, color: "#94A3B8", lineHeight: 1, margin: "2px 0 0", fontWeight: 500 }}>
+              Discover Talent. Build Futures.
+            </p>
           </div>
         </div>
 
-        {/* Right Section: Status, Role Switcher & Auth */}
+        {/* Global Navigation Links (For Visitors or Quick Switch) */}
+        {!user && (
+          <nav style={{ display: "flex", alignItems: "center", gap: 24 }} className="hide-on-mobile">
+            <button
+              onClick={() => setActiveTab("landing")}
+              style={{
+                background: "none",
+                color: activeTab === "landing" ? "#FFFFFF" : "#94A3B8",
+                fontWeight: activeTab === "landing" ? 700 : 500,
+                fontSize: 14,
+                borderBottom: activeTab === "landing" ? "2px solid #3157D5" : "2px solid transparent",
+                padding: "6px 2px"
+              }}
+            >
+              Home
+            </button>
+            <button
+              onClick={() => setActiveTab("jobs")}
+              style={{
+                background: "none",
+                color: activeTab === "jobs" ? "#FFFFFF" : "#94A3B8",
+                fontWeight: activeTab === "jobs" ? 700 : 500,
+                fontSize: 14,
+                borderBottom: activeTab === "jobs" ? "2px solid #3157D5" : "2px solid transparent",
+                padding: "6px 2px"
+              }}
+            >
+              Find Jobs
+            </button>
+            <button
+              onClick={() => setActiveTab("matcher")}
+              style={{
+                background: "none",
+                color: activeTab === "matcher" ? "#FFFFFF" : "#94A3B8",
+                fontWeight: activeTab === "matcher" ? 700 : 500,
+                fontSize: 14,
+                padding: "6px 2px"
+              }}
+            >
+              AI Resume Matcher
+            </button>
+            <button
+              onClick={() => setActiveTab("prep")}
+              style={{
+                background: "none",
+                color: activeTab === "prep" ? "#FFFFFF" : "#94A3B8",
+                fontWeight: activeTab === "prep" ? 700 : 500,
+                fontSize: 14,
+                padding: "6px 2px"
+              }}
+            >
+              Interview Prep
+            </button>
+          </nav>
+        )}
+
+        {/* Right Section: System Indicator, Notifications & Auth */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
           {/* Live System Indicator */}
           <div style={{
@@ -121,54 +182,31 @@ export default function Navbar({
             padding: "5px 12px",
             borderRadius: 20,
             fontSize: 11,
-            color: backendStatus.connected ? "#4ade80" : "#fbbf24",
+            color: backendStatus?.connected ? "#34D399" : "#FBBF24",
             border: "1px solid rgba(255, 255, 255, 0.12)"
           }}>
             <span style={{
               width: 8,
               height: 8,
               borderRadius: "50%",
-              background: backendStatus.connected ? "#4ade80" : "#fbbf24",
-              boxShadow: backendStatus.connected ? "0 0 8px #4ade80" : "0 0 8px #fbbf24"
+              background: backendStatus?.connected ? "#10B981" : "#F59E0B",
+              boxShadow: backendStatus?.connected ? "0 0 8px #10B981" : "0 0 8px #F59E0B"
             }} />
-            <span style={{ fontWeight: 700 }}>{backendStatus.connected ? "FastAPI Live" : "FastAPI Ready"}</span>
+            <span style={{ fontWeight: 700 }}>{backendStatus?.connected ? "FastAPI Live" : "FastAPI Ready"}</span>
           </div>
 
-          {/* Authenticated Role Security Badge */}
-          {user && (
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              background: (userRole === "admin" || userRole === "recruiter")
-                ? "linear-gradient(135deg, rgba(121, 40, 202, 0.4), rgba(0, 102, 204, 0.4))"
-                : "rgba(255, 255, 255, 0.12)",
-              border: (userRole === "admin" || userRole === "recruiter")
-                ? "1px solid #c084fc"
-                : "1px solid rgba(255, 255, 255, 0.2)",
-              padding: "4px 12px",
-              borderRadius: 20,
-              fontSize: 11.5,
-              fontWeight: 800,
-              color: (userRole === "admin" || userRole === "recruiter") ? "#e9d5ff" : "#bae6fd"
-            }}>
-              <span>{(userRole === "admin" || userRole === "recruiter") ? "🛡️ Admin (Hiring Authority)" : "🎓 Candidate"}</span>
-            </div>
-          )}
-
-          {/* In-App Notifications Bell */}
+          {/* User Notifications */}
           {user && (
             <div style={{ position: "relative" }}>
               <button
                 onClick={() => setShowNotifMenu(!showNotifMenu)}
                 title="Notifications"
                 style={{
-                  background: showNotifMenu ? "rgba(255, 255, 255, 0.25)" : "rgba(255, 255, 255, 0.12)",
-                  border: "1px solid rgba(255, 255, 255, 0.2)",
-                  color: "#ffffff",
+                  background: showNotifMenu ? "rgba(255, 255, 255, 0.2)" : "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  color: "#FFFFFF",
                   borderRadius: 10,
-                  padding: "6px 10px",
-                  cursor: "pointer",
+                  padding: "7px 11px",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
@@ -181,8 +219,8 @@ export default function Navbar({
                     position: "absolute",
                     top: -4,
                     right: -4,
-                    background: "#ef4444",
-                    color: "#ffffff",
+                    background: "#EF4444",
+                    color: "#FFFFFF",
                     borderRadius: "50%",
                     fontSize: 10,
                     fontWeight: 900,
@@ -191,7 +229,7 @@ export default function Navbar({
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    border: "2px solid #0f2b48"
+                    border: "2px solid #172554"
                   }}>
                     {unreadCount}
                   </span>
@@ -203,22 +241,22 @@ export default function Navbar({
                 <div style={{
                   position: "absolute",
                   right: 0,
-                  top: "120%",
+                  top: "125%",
                   width: 320,
-                  background: "#ffffff",
-                  color: "#0f2b48",
+                  background: "#FFFFFF",
+                  color: "#0F172A",
                   borderRadius: 14,
                   boxShadow: "0 12px 35px rgba(0,0,0,0.25)",
-                  border: "1px solid #e2e8f0",
+                  border: "1px solid #E2E8F0",
                   zIndex: 9999,
                   overflow: "hidden"
                 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #f1f5f9", background: "#f8fafc" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid #F1F5F9", background: "#F8FAFC" }}>
                     <span style={{ fontSize: 13, fontWeight: 800 }}>In-App Notifications</span>
                     {unreadCount > 0 && (
                       <button
                         onClick={handleMarkAllRead}
-                        style={{ border: "none", background: "none", color: "#0066cc", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+                        style={{ border: "none", background: "none", color: "#3157D5", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                       >
                         Mark all read
                       </button>
@@ -226,7 +264,7 @@ export default function Navbar({
                   </div>
                   <div style={{ maxHeight: 280, overflowY: "auto" }}>
                     {notifications.length === 0 ? (
-                      <div style={{ padding: "20px", textAlign: "center", color: "#64748b", fontSize: 12 }}>
+                      <div style={{ padding: "20px", textAlign: "center", color: "#64748B", fontSize: 12 }}>
                         No notifications yet.
                       </div>
                     ) : (
@@ -235,20 +273,14 @@ export default function Navbar({
                           key={n.id}
                           style={{
                             padding: "10px 14px",
-                            borderBottom: "1px solid #f8fafc",
-                            background: n.read ? "#ffffff" : "#f0fdf4",
-                            cursor: "pointer"
-                          }}
-                          onClick={() => {
-                            if (n.link) setActiveTab(n.link.replace("/", ""));
-                            setShowNotifMenu(false);
+                            borderBottom: "1px solid #F8FAFC",
+                            background: n.read ? "#FFFFFF" : "#F0FDF4"
                           }}
                         >
-                          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#0f172a", marginBottom: 2 }}>
-                            {n.title}
-                          </div>
-                          <div style={{ fontSize: 11.5, color: "#64748b", lineHeight: 1.4 }}>
-                            {n.message}
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: "#0F172A" }}>{n.title}</div>
+                          <div style={{ fontSize: 11.5, color: "#64748B", marginTop: 2 }}>{n.message}</div>
+                          <div style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>
+                            {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </div>
                       ))
@@ -259,348 +291,310 @@ export default function Navbar({
             </div>
           )}
 
-          {/* User Account / Auth */}
+          {/* User Profile / Action Buttons */}
           {user ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <div
-                onClick={onOpenAuth}
-                title="Account Details"
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
-                  background: "rgba(255, 255, 255, 0.12)",
-                  padding: "4px 12px",
-                  borderRadius: 20,
-                  cursor: "pointer",
-                  border: "1px solid rgba(255, 255, 255, 0.15)"
+                  gap: 10,
+                  background: "rgba(255, 255, 255, 0.08)",
+                  border: "1px solid rgba(255, 255, 255, 0.16)",
+                  borderRadius: 24,
+                  padding: "4px 12px 4px 6px",
+                  color: "#FFFFFF"
                 }}
               >
                 <div style={{
-                  width: 26,
-                  height: 26,
+                  width: 32,
+                  height: 32,
                   borderRadius: "50%",
-                  background: "#ffffff",
-                  color: "#0f2b48",
+                  background: isRecruiterOrAdmin ? "linear-gradient(135deg, #7657E8 0%, #3157D5 100%)" : "#3157D5",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontWeight: 900,
-                  fontSize: 12
+                  fontWeight: 800,
+                  fontSize: 13
                 }}>
                   {user.name ? user.name[0].toUpperCase() : "U"}
                 </div>
-                <div style={{ fontSize: 12.5, fontWeight: 700, color: "#ffffff" }}>{user.name}</div>
-              </div>
+                <div style={{ textAlign: "left" }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.2 }}>{user.name || "User"}</div>
+                  <div style={{ fontSize: 10, color: "#94A3B8", lineHeight: 1 }}>
+                    {isRecruiterOrAdmin ? "Admin / Recruiter" : "Candidate"}
+                  </div>
+                </div>
+              </button>
 
               <button
                 onClick={onLogout}
-                title="Sign Out"
-                style={{
-                  background: "rgba(239, 68, 68, 0.22)",
-                  border: "1px solid rgba(239, 68, 68, 0.4)",
-                  color: "#fca5a5",
-                  borderRadius: 8,
-                  padding: "6px 9px",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center"
-                }}
+                title="Log Out"
+                className="btn btn-secondary"
+                style={{ padding: "6px 12px", fontSize: 12, borderRadius: 10, background: "rgba(255, 255, 255, 0.1)", color: "#FFFFFF", border: "1px solid rgba(255, 255, 255, 0.15)" }}
               >
-                <LogOutIcon size={14} />
+                <LogOutIcon size={14} color="#FFFFFF" />
+                <span className="hide-on-mobile">Logout</span>
               </button>
             </div>
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <button
-                className="btn"
                 onClick={() => onOpenAuth("login")}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  background: "rgba(255, 255, 255, 0.12)",
-                  color: "#ffffff",
-                  border: "1px solid rgba(255, 255, 255, 0.25)",
-                  borderRadius: 8
-                }}
+                className="btn btn-secondary"
+                style={{ padding: "8px 16px", fontSize: 13, background: "transparent", color: "#FFFFFF", border: "1px solid rgba(255, 255, 255, 0.3)" }}
               >
-                Sign In
+                Login
               </button>
               <button
-                className="btn"
                 onClick={() => onOpenAuth("register")}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)",
-                  color: "#ffffff",
-                  borderRadius: 8,
-                  boxShadow: "0 4px 12px rgba(0, 102, 204, 0.4)",
-                  border: "none"
-                }}
+                className="btn btn-primary"
+                style={{ padding: "8px 18px", fontSize: 13 }}
               >
-                Sign Up Free
+                Get Started
               </button>
             </div>
           )}
         </div>
       </div>
 
-      {/* Tier 2: Navigation Tabs Strip */}
+      {/* Tier 2: Role-Specific Navigation Strip */}
       <div style={{
-        maxWidth: 1400,
-        margin: "0 auto",
-        padding: "6px 24px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        overflowX: "auto",
-        whiteSpace: "nowrap",
-        gap: 8,
-        scrollbarWidth: "none"
+        background: "rgba(15, 23, 42, 0.55)",
+        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+        padding: "0 24px",
+        overflowX: "auto"
       }}>
-        <nav style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {userRole === "candidate" && (
-            <>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("jobs")}
-                style={{
-                  background: activeTab === "jobs" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "jobs" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "jobs" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                💼 Explore Jobs
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("internships")}
-                style={{
-                  background: activeTab === "internships" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "internships" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "internships" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                🎓 Internships & PPO
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("matcher")}
-                style={{
-                  background: activeTab === "matcher" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "matcher" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "matcher" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                📄 ATS Scanner
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("builder")}
-                style={{
-                  background: activeTab === "builder" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "builder" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "builder" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                📝 Resume Builder
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("interviews")}
-                style={{
-                  background: activeTab === "interviews" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "interviews" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "interviews" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                🎯 Assessment Rounds
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("applications")}
-                style={{
-                  background: activeTab === "applications" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "applications" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "applications" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                📋 Applications
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("prep")}
-                style={{
-                  background: activeTab === "prep" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 13px",
-                  fontSize: 13,
-                  fontWeight: activeTab === "prep" ? 800 : 600,
-                  borderRadius: 8,
-                  border: activeTab === "prep" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                💡 Mock Practice
-              </button>
-            </>
-          )}
-
-          {(userRole === "admin" || userRole === "recruiter") && (
-            <>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("recruiter-dashboard")}
-                style={{
-                  background: activeTab === "recruiter-dashboard" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 14px",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  borderRadius: 8,
-                  border: activeTab === "recruiter-dashboard" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <UsersIcon size={16} /> 📋 Candidate Applications & Requests
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("jobs")}
-                style={{
-                  background: activeTab === "jobs" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 14px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: activeTab === "jobs" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <BriefcaseIcon size={16} /> Manage Openings
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("interviews")}
-                style={{
-                  background: activeTab === "interviews" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 14px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: activeTab === "interviews" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <CalendarIcon size={16} /> Assessment & Rounds
-              </button>
-              <button
-                className="btn"
-                onClick={() => setActiveTab("admin-dashboard")}
-                style={{
-                  background: activeTab === "admin-dashboard" ? "rgba(255, 255, 255, 0.22)" : "transparent",
-                  color: "#ffffff",
-                  padding: "6px 14px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  borderRadius: 8,
-                  border: activeTab === "admin-dashboard" ? "1px solid rgba(255, 255, 255, 0.35)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <ShieldLockIcon size={16} /> Selection Emails & Governance
-              </button>
-              <button
-                className="btn"
-                onClick={onOpenPostJob}
-                style={{
-                  background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)",
-                  color: "#ffffff",
-                  padding: "6px 16px",
-                  marginLeft: 10,
-                  borderRadius: 8,
-                  fontWeight: 800,
-                  fontSize: 12.5,
-                  boxShadow: "0 4px 12px rgba(0, 102, 204, 0.35)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6
-                }}
-              >
-                <PlusIcon size={15} /> Post New Opportunity
-              </button>
-            </>
-          )}
-        </nav>
-
-        {/* Unstop partner badge */}
         <div style={{
+          maxWidth: 1380,
+          margin: "0 auto",
           display: "flex",
           alignItems: "center",
-          gap: 6,
-          fontSize: 11.5,
-          color: "#93c5fd",
-          fontWeight: 600,
-          paddingLeft: 12
+          gap: 4
         }}>
-          <span>✦ 22 Live Opportunities (Software, Business & Hardware)</span>
+          {/* Candidate Tabs */}
+          {(!user || userRole === "candidate") && (
+            <>
+              <button
+                onClick={() => setActiveTab("candidate-dashboard")}
+                style={{
+                  background: activeTab === "candidate-dashboard" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "candidate-dashboard" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "candidate-dashboard" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <BrainIcon size={16} color={activeTab === "candidate-dashboard" ? "#60A5FA" : "#94A3B8"} />
+                Candidate Dashboard
+              </button>
+
+              <button
+                onClick={() => setActiveTab("jobs")}
+                style={{
+                  background: activeTab === "jobs" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "jobs" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "jobs" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <BriefcaseIcon size={16} color={activeTab === "jobs" ? "#60A5FA" : "#94A3B8"} />
+                Find Jobs & Internships
+              </button>
+
+              <button
+                onClick={() => setActiveTab("matcher")}
+                style={{
+                  background: activeTab === "matcher" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "matcher" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "matcher" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <SparklesIcon size={16} color={activeTab === "matcher" ? "#60A5FA" : "#94A3B8"} />
+                AI Resume Matcher
+              </button>
+
+              <button
+                onClick={() => setActiveTab("builder")}
+                style={{
+                  background: activeTab === "builder" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "builder" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "builder" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <FileTextIcon size={16} color={activeTab === "builder" ? "#60A5FA" : "#94A3B8"} />
+                ATS Resume Builder
+              </button>
+
+              <button
+                onClick={() => setActiveTab("applications")}
+                style={{
+                  background: activeTab === "applications" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "applications" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "applications" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <span style={{ fontSize: 14 }}>📋</span>
+                My Applications
+              </button>
+
+              <button
+                onClick={() => setActiveTab("interviews")}
+                style={{
+                  background: activeTab === "interviews" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "interviews" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "interviews" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <CalendarIcon size={16} color={activeTab === "interviews" ? "#60A5FA" : "#94A3B8"} />
+                Scheduled Interviews
+              </button>
+
+              <button
+                onClick={() => setActiveTab("prep")}
+                style={{
+                  background: activeTab === "prep" ? "rgba(49, 87, 213, 0.25)" : "transparent",
+                  color: activeTab === "prep" ? "#60A5FA" : "#CBD5E1",
+                  borderBottom: activeTab === "prep" ? "2.5px solid #3157D5" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <span style={{ fontSize: 14 }}>🎙️</span>
+                AI Interview Prep
+              </button>
+            </>
+          )}
+
+          {/* Recruiter / Admin Tabs */}
+          {isRecruiterOrAdmin && (
+            <>
+              <button
+                onClick={() => setActiveTab("recruiter-dashboard")}
+                style={{
+                  background: activeTab === "recruiter-dashboard" ? "rgba(118, 87, 232, 0.3)" : "transparent",
+                  color: activeTab === "recruiter-dashboard" ? "#C4B5FD" : "#CBD5E1",
+                  borderBottom: activeTab === "recruiter-dashboard" ? "2.5px solid #7657E8" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <UsersIcon size={16} color={activeTab === "recruiter-dashboard" ? "#C4B5FD" : "#94A3B8"} />
+                Recruiter Hub & AI Ranking
+              </button>
+
+              <button
+                onClick={() => setActiveTab("jobs")}
+                style={{
+                  background: activeTab === "jobs" ? "rgba(118, 87, 232, 0.3)" : "transparent",
+                  color: activeTab === "jobs" ? "#C4B5FD" : "#CBD5E1",
+                  borderBottom: activeTab === "jobs" ? "2.5px solid #7657E8" : "2.5px solid transparent",
+                  padding: "11px 16px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  whiteSpace: "nowrap"
+                }}
+              >
+                <BriefcaseIcon size={16} color={activeTab === "jobs" ? "#C4B5FD" : "#94A3B8"} />
+                All Jobs Catalog
+              </button>
+
+              <button
+                onClick={onOpenPostJob}
+                style={{
+                  background: "linear-gradient(135deg, #3157D5 0%, #7657E8 100%)",
+                  color: "#FFFFFF",
+                  padding: "7px 16px",
+                  fontSize: 12.5,
+                  fontWeight: 800,
+                  borderRadius: 8,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  marginLeft: "auto",
+                  whiteSpace: "nowrap",
+                  boxShadow: "0 2px 8px rgba(49, 87, 213, 0.3)"
+                }}
+              >
+                <PlusIcon size={15} color="#FFFFFF" />
+                Post New Job
+              </button>
+
+              {userRole === "admin" && (
+                <button
+                  onClick={() => setActiveTab("admin-dashboard")}
+                  style={{
+                    background: activeTab === "admin-dashboard" ? "rgba(118, 87, 232, 0.3)" : "transparent",
+                    color: activeTab === "admin-dashboard" ? "#C4B5FD" : "#CBD5E1",
+                    borderBottom: activeTab === "admin-dashboard" ? "2.5px solid #7657E8" : "2.5px solid transparent",
+                    padding: "11px 16px",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                    whiteSpace: "nowrap"
+                  }}
+                >
+                  <ShieldLockIcon size={16} color={activeTab === "admin-dashboard" ? "#C4B5FD" : "#94A3B8"} />
+                  Platform Admin
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </header>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   SearchIcon,
   MapPinIcon,
@@ -14,6 +14,7 @@ import { api, INITIAL_MOCK_JOBS } from "../services/api";
 
 export default function JobBoard({
   initialCategory = "all",
+  initialFilter = null,
   onApplyJob,
   onSelectJobForMatcher,
   user,
@@ -22,9 +23,17 @@ export default function JobBoard({
   const [allJobsRaw, setAllJobsRaw] = useState(() => INITIAL_MOCK_JOBS || []);
   const [categoryFilter, setCategoryFilter] = useState(initialCategory);
   const [domainFilter, setDomainFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [locationFilter, setLocationFilter] = useState("all");
+  const [workplaceFilter, setWorkplaceFilter] = useState("all");
+  const [experienceFilter, setExperienceFilter] = useState("all");
+  const [salaryFilter, setSalaryFilter] = useState("all");
+  const [selectedSkill, setSelectedSkill] = useState("all");
+  const [search, setSearch] = useState(initialFilter?.query || "");
+  const [locationSearch, setLocationSearch] = useState(initialFilter?.location || "");
+  const [sortBy, setSortBy] = useState("latest");
   const [loading, setLoading] = useState(false);
+
+  // Saved / Bookmark job IDs set
+  const [savedJobIds, setSavedJobIds] = useState(new Set());
 
   // Top Details View & On-the-spot Apply State
   const [selectedTopJob, setSelectedTopJob] = useState(() => (INITIAL_MOCK_JOBS && INITIAL_MOCK_JOBS.length > 0 ? INITIAL_MOCK_JOBS[0] : null));
@@ -41,36 +50,53 @@ export default function JobBoard({
     setCategoryFilter(initialCategory);
   }, [initialCategory]);
 
-  // Sync applied jobs specific to this candidate account
+  useEffect(() => {
+    if (initialFilter?.query) setSearch(initialFilter.query);
+    if (initialFilter?.location) setLocationSearch(initialFilter.location);
+  }, [initialFilter]);
+
+  // Sync applied & saved jobs specific to candidate account
   useEffect(() => {
     let isMounted = true;
-    const syncUserApplications = async () => {
+    const syncUserData = async () => {
       if (!user?.email) {
         setAppliedJobIds(new Set());
+        setSavedJobIds(new Set());
         return;
       }
       try {
-        const apps = await api.getApplications({ candidate_email: user.email.toLowerCase(), candidate_id: user.id });
-        if (isMounted && Array.isArray(apps)) {
-          const userAppliedIds = new Set(
-            apps
-              .filter(a => (a.candidate_email && a.candidate_email.toLowerCase() === user.email.toLowerCase()) || (user.id && a.candidate_id === user.id))
-              .map(a => a.job_id)
-          );
-          setAppliedJobIds(userAppliedIds);
+        const [apps, saved] = await Promise.all([
+          api.getApplications({ candidate_email: user.email.toLowerCase(), candidate_id: user.id }),
+          api.getSavedJobs().catch(() => [])
+        ]);
+
+        if (isMounted) {
+          if (Array.isArray(apps)) {
+            const userAppliedIds = new Set(
+              apps
+                .filter(a => (a.candidate_email && a.candidate_email.toLowerCase() === user.email.toLowerCase()) || (user.id && a.candidate_id === user.id))
+                .map(a => a.job_id)
+            );
+            setAppliedJobIds(userAppliedIds);
+          }
+
+          if (Array.isArray(saved)) {
+            setSavedJobIds(new Set(saved.map(j => j.id)));
+          }
         }
       } catch (err) {
         console.warn("Could not sync candidate applications:", err);
       }
     };
-    syncUserApplications();
+    syncUserData();
     return () => { isMounted = false; };
   }, [user?.email, user?.id]);
 
-  // Load all jobs once on mount with safety
+  // Load all jobs from backend
   useEffect(() => {
     let isMounted = true;
     const fetchAllJobs = async () => {
+      setLoading(true);
       try {
         const rawList = await api.getJobs({});
         if (isMounted && rawList && rawList.length > 0) {
@@ -81,6 +107,8 @@ export default function JobBoard({
         }
       } catch (err) {
         console.error("Failed to fetch jobs catalog:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
     };
 
@@ -88,32 +116,63 @@ export default function JobBoard({
     return () => { isMounted = false; };
   }, []);
 
-  const reloadJobs = async () => {
-    setLoading(true);
-    try {
-      const rawList = await api.getJobs({});
-      setAllJobsRaw(rawList || []);
-    } catch (err) {
-      console.error("Failed to reload jobs:", err);
-    } finally {
-      setLoading(false);
+  const handleToggleSave = async (job, e) => {
+    if (e) e.stopPropagation();
+    if (!user) {
+      if (onRequireAuth) onRequireAuth("login", job);
+      return;
     }
+
+    const isSaved = savedJobIds.has(job.id);
+    if (isSaved) {
+      await api.unsaveJob(job.id);
+      setSavedJobIds(prev => {
+        const next = new Set(prev);
+        next.delete(job.id);
+        return next;
+      });
+      setSpotToast(`Removed "${job.title}" from saved bookmarks.`);
+    } else {
+      await api.saveJob(job.id);
+      setSavedJobIds(prev => new Set([...prev, job.id]));
+      setSpotToast(`❤️ Saved "${job.title}" to bookmarks!`);
+    }
+    setTimeout(() => setSpotToast(null), 3000);
   };
 
-  // Instant in-memory filtering: 0ms latency when switching tabs
-  const jobs = React.useMemo(() => {
+  // Instant in-memory filtering: 0ms latency
+  const filteredJobs = useMemo(() => {
     let list = allJobsRaw || [];
+
     if (domainFilter !== "all") {
       list = list.filter(j => (j.domain || "software").toLowerCase() === domainFilter.toLowerCase());
     }
     if (categoryFilter !== "all") {
       list = list.filter(j => (j.category || "job").toLowerCase() === categoryFilter.toLowerCase());
     }
-    if (locationFilter === "remote") {
+    if (workplaceFilter === "remote") {
       list = list.filter(j => j.location.toLowerCase().includes("remote"));
-    } else if (locationFilter === "hybrid") {
+    } else if (workplaceFilter === "hybrid") {
       list = list.filter(j => j.location.toLowerCase().includes("hybrid") || j.location.toLowerCase().includes("onsite"));
     }
+
+    if (experienceFilter !== "all") {
+      if (experienceFilter === "fresher") {
+        list = list.filter(j => /fresher|college|intern|entry/i.test(j.experience_level || ""));
+      } else if (experienceFilter === "1-3") {
+        list = list.filter(j => /1|2|3|junior/i.test(j.experience_level || ""));
+      }
+    }
+
+    if (selectedSkill !== "all") {
+      list = list.filter(j => j.skills && j.skills.some(s => s.toLowerCase() === selectedSkill.toLowerCase()));
+    }
+
+    if (locationSearch.trim()) {
+      const loc = locationSearch.toLowerCase();
+      list = list.filter(j => j.location.toLowerCase().includes(loc));
+    }
+
     if (search.trim()) {
       const s = search.toLowerCase();
       list = list.filter(j =>
@@ -123,20 +182,17 @@ export default function JobBoard({
         (j.skills && j.skills.some(sk => sk.toLowerCase().includes(s)))
       );
     }
+
+    if (sortBy === "applicants") {
+      list = [...list].sort((a, b) => (b.applicants_count || 0) - (a.applicants_count || 0));
+    }
+
     return list;
-  }, [allJobsRaw, domainFilter, categoryFilter, locationFilter, search]);
+  }, [allJobsRaw, domainFilter, categoryFilter, workplaceFilter, experienceFilter, selectedSkill, search, locationSearch, sortBy]);
 
-  const softwareCount = allJobsRaw.filter(j => (j.domain || "software") === "software").length;
-  const businessCount = allJobsRaw.filter(j => j.domain === "business").length;
-  const hardwareCount = allJobsRaw.filter(j => j.domain === "hardware").length;
-  const internshipCount = allJobsRaw.filter(j => j.category === "internship").length;
-  const jobCount = allJobsRaw.filter(j => j.category === "job").length;
-
-  // On-the-spot 1-click application opening details form
   const handleApplyOnTheSpot = async (job, e) => {
     if (e) e.stopPropagation();
 
-    // If user is not authenticated, redirect immediately to Signup / Sign In page!
     if (!user) {
       if (onRequireAuth) {
         onRequireAuth("register", job);
@@ -164,7 +220,7 @@ export default function JobBoard({
         candidate_name: user?.name || "Candidate",
         candidate_email: (user?.email || "").toLowerCase().trim(),
         candidate_skills: user?.skills || job.skills || ["Python", "FastAPI", "React"],
-        cover_letter: "Applied directly on the spot via Recruitment Portal AI Hub.",
+        cover_letter: "Applied directly on the spot via TalentAI Portal.",
         resume_name: "Candidate_Resume.pdf"
       });
       setAppliedJobIds(prev => new Set([...prev, job.id]));
@@ -182,735 +238,489 @@ export default function JobBoard({
     const topElem = document.getElementById("top-job-details-section");
     if (topElem) {
       topElem.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      window.scrollTo({ top: 350, behavior: "smooth" });
     }
   };
 
   return (
-    <div style={{ maxWidth: 1340, margin: "0 auto", padding: "28px 24px 60px" }}>
-      {/* On-the-spot Toast Notification */}
+    <div style={{ maxWidth: 1380, margin: "0 auto", padding: "28px 24px 80px" }}>
+      {/* Toast Alert */}
       {spotToast && (
         <div style={{
           position: "fixed",
-          top: 80,
+          top: 90,
           right: 24,
-          background: "linear-gradient(135deg, #065f46 0%, #047857 100%)",
-          color: "#ffffff",
+          background: "#172554",
+          color: "#FFFFFF",
           padding: "14px 22px",
           borderRadius: 14,
-          boxShadow: "0 10px 30px rgba(6, 95, 70, 0.4)",
-          fontSize: 14,
-          fontWeight: 800,
+          boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
           zIndex: 9999,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          border: "1px solid #34d399",
-          animation: "modalFadeIn 0.22s ease-out"
+          fontWeight: 700,
+          fontSize: 13.5,
+          border: "1.5px solid #3157D5",
+          animation: "modalEnter 0.2s ease"
         }}>
-          <span>⚡</span>
-          <span>{spotToast}</span>
+          {spotToast}
         </div>
       )}
 
-      {/* Recruitment Portal Hero Banner */}
-      <div style={{
-        background: "linear-gradient(135deg, #0f2b48 0%, #0066cc 60%, #00b4d8 100%)",
-        borderRadius: 22,
-        padding: "38px 34px",
-        color: "#ffffff",
-        boxShadow: "0 12px 36px -6px rgba(0, 102, 204, 0.35)",
-        marginBottom: 28,
-        position: "relative",
-        overflow: "hidden"
-      }}>
-        {/* Subtle decorative glow */}
-        <div style={{
-          position: "absolute",
-          right: -40,
-          top: -40,
-          width: 260,
-          height: 260,
-          borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)",
-          pointerEvents: "none"
-        }} />
-
-        <div style={{ maxWidth: 860, position: "relative", zIndex: 2 }}>
+      {/* TOP SEARCH & SORT BAR */}
+      <div className="card" style={{ padding: "18px 24px", marginBottom: 24, borderRadius: 18 }}>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+          {/* Main search box */}
           <div style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 8,
-            background: "rgba(255, 255, 255, 0.16)",
-            padding: "6px 16px",
-            borderRadius: 24,
-            fontSize: 12,
-            fontWeight: 800,
-            letterSpacing: 0.5,
-            textTransform: "uppercase",
-            marginBottom: 14,
-            border: "1px solid rgba(255, 255, 255, 0.25)"
-          }}>
-            ⚡ RECRUITMENT PORTAL • CAREER & INTERNSHIP HUB
-          </div>
-
-          <h1 style={{ fontSize: 36, fontWeight: 900, letterSpacing: -0.9, marginBottom: 12, lineHeight: 1.2 }}>
-            Discover Engineering Jobs, Internships & Multi-Round Assessments
-          </h1>
-          <p style={{ fontSize: 16, color: "#e0f2fe", marginBottom: 26, lineHeight: 1.55 }}>
-            Apply for verified tech openings, summer & winter internships with Pre-Placement Offers (PPO), and test your resume with our instant AI ATS diagnostic.
-          </p>
-
-          {/* Unstop Search Box */}
-          <div style={{
-            background: "#ffffff",
-            borderRadius: 14,
-            padding: "6px 8px 6px 16px",
+            flex: 1.8,
+            minWidth: 260,
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            boxShadow: "0 6px 20px rgba(0, 0, 0, 0.2)"
+            gap: 10,
+            background: "#F8FAFC",
+            border: "1px solid #E2E8F0",
+            borderRadius: 12,
+            padding: "8px 14px"
           }}>
-            <SearchIcon size={20} color="#64748b" />
+            <SearchIcon size={18} color="#64748B" />
             <input
               type="text"
-              placeholder="Search by role, company, or technology (e.g. Internship, React, Python)..."
+              placeholder="Search by role, company, or tech stack (e.g. FastAPI, SDE)..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              style={{
-                border: "none",
-                outline: "none",
-                width: "100%",
-                fontSize: 15,
-                color: "#0f172a",
-                fontWeight: 500
-              }}
+              style={{ width: "100%", border: "none", background: "transparent", outline: "none", fontSize: 13.5, color: "#0F172A" }}
             />
-            <button
-              className="btn btn-primary"
-              onClick={reloadJobs}
-              style={{ padding: "10px 24px", borderRadius: 10, background: "#1c4980" }}
-            >
-              Find Opportunities
-            </button>
+            {search && (
+              <button onClick={() => setSearch("")} style={{ border: "none", background: "none", color: "#94A3B8", fontSize: 13 }}>✕</button>
+            )}
           </div>
-        </div>
-      </div>
 
-      {/* Unstop Quick Filter Pills with Dynamic Counts Across Software, Business, Hardware */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 24 }}>
-        <button
-          className={`filter-pill ${categoryFilter === "all" && domainFilter === "all" ? "filter-pill-active" : ""}`}
-          onClick={() => { setCategoryFilter("all"); setDomainFilter("all"); }}
-        >
-          <span>🔥 All Opportunities</span>
-          <span style={{
-            background: categoryFilter === "all" && domainFilter === "all" ? "rgba(255, 255, 255, 0.25)" : "#e2e8f0",
-            color: categoryFilter === "all" && domainFilter === "all" ? "#ffffff" : "#475569",
+          {/* Location input */}
+          <div style={{
+            flex: 1.2,
+            minWidth: 200,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "#F8FAFC",
+            border: "1px solid #E2E8F0",
             borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{allJobsRaw.length || 22}</span>
-        </button>
-
-        {/* Domain Filters */}
-        <button
-          className={`filter-pill ${domainFilter === "software" ? "filter-pill-active" : ""}`}
-          onClick={() => setDomainFilter(domainFilter === "software" ? "all" : "software")}
-        >
-          <span>💻 Software & AI</span>
-          <span style={{
-            background: domainFilter === "software" ? "rgba(255, 255, 255, 0.25)" : "#e0f2fe",
-            color: domainFilter === "software" ? "#ffffff" : "#0369a1",
-            borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{softwareCount || 11}</span>
-        </button>
-
-        <button
-          className={`filter-pill ${domainFilter === "business" ? "filter-pill-active" : ""}`}
-          onClick={() => setDomainFilter(domainFilter === "business" ? "all" : "business")}
-        >
-          <span>💼 Business & Finance</span>
-          <span style={{
-            background: domainFilter === "business" ? "rgba(255, 255, 255, 0.25)" : "#ccfbf1",
-            color: domainFilter === "business" ? "#ffffff" : "#0f766e",
-            borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{businessCount || 6}</span>
-        </button>
-
-        <button
-          className={`filter-pill ${domainFilter === "hardware" ? "filter-pill-active" : ""}`}
-          onClick={() => setDomainFilter(domainFilter === "hardware" ? "all" : "hardware")}
-        >
-          <span>🔌 Hardware & Embedded</span>
-          <span style={{
-            background: domainFilter === "hardware" ? "rgba(255, 255, 255, 0.25)" : "#ffedd5",
-            color: domainFilter === "hardware" ? "#ffffff" : "#c2410c",
-            borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{hardwareCount || 5}</span>
-        </button>
-
-        {/* Opportunity Types */}
-        <button
-          className={`filter-pill ${categoryFilter === "internship" ? "filter-pill-active" : ""}`}
-          onClick={() => setCategoryFilter(categoryFilter === "internship" ? "all" : "internship")}
-        >
-          <span>🎓 Internships & PPO</span>
-          <span style={{
-            background: categoryFilter === "internship" ? "rgba(255, 255, 255, 0.25)" : "#fef3c7",
-            color: categoryFilter === "internship" ? "#ffffff" : "#b45309",
-            borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{internshipCount || 12}</span>
-        </button>
-
-        <button
-          className={`filter-pill ${categoryFilter === "job" ? "filter-pill-active" : ""}`}
-          onClick={() => setCategoryFilter(categoryFilter === "job" ? "all" : "job")}
-        >
-          <span>👔 Full-Time Jobs</span>
-          <span style={{
-            background: categoryFilter === "job" ? "rgba(255, 255, 255, 0.25)" : "#f3e8ff",
-            color: categoryFilter === "job" ? "#ffffff" : "#7e22ce",
-            borderRadius: 12,
-            padding: "2px 8px",
-            fontSize: 11,
-            fontWeight: 800
-          }}>{jobCount || 10}</span>
-        </button>
-
-        <button
-          className={`filter-pill ${locationFilter === "remote" ? "filter-pill-active" : ""}`}
-          onClick={() => setLocationFilter(locationFilter === "remote" ? "all" : "remote")}
-        >
-          <span>💻 Remote Only</span>
-        </button>
-
-        <button
-          className={`filter-pill ${locationFilter === "hybrid" ? "filter-pill-active" : ""}`}
-          onClick={() => setLocationFilter(locationFilter === "hybrid" ? "all" : "hybrid")}
-        >
-          <span>🏢 Hybrid / Onsite</span>
-        </button>
-      </div>
-
-      {/* Main Container */}
-      <div style={{ maxWidth: 1160, margin: "0 auto", display: "flex", flexDirection: "column", gap: 16 }}>
-
-        {/* TOP DETAILS VIEW: Displays Full Opportunity Information at the Top Only */}
-        {selectedTopJob && (
-          <div
-            id="top-job-details-section"
-            style={{
-              background: "#ffffff",
-              borderRadius: 22,
-              padding: "28px 32px",
-              border: "2px solid #0066cc",
-              boxShadow: "0 14px 40px rgba(0, 102, 204, 0.18)",
-              marginBottom: 16,
-              animation: "modalFadeIn 0.25s ease-out"
-            }}
-          >
-            {/* Top Bar Header */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{
-                  width: 52,
-                  height: 52,
-                  borderRadius: 14,
-                  background: selectedTopJob.company_logo_color || "#0f2b48",
-                  color: "#ffffff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 900,
-                  fontSize: 22,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.12)"
-                }}>
-                  {selectedTopJob.company ? selectedTopJob.company[0] : "O"}
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 4 }}>
-                    <span className="badge" style={{
-                      background: selectedTopJob.domain === "business" ? "#f0fdfa" : selectedTopJob.domain === "hardware" ? "#fff7ed" : "#f0f9ff",
-                      color: selectedTopJob.domain === "business" ? "#0f766e" : selectedTopJob.domain === "hardware" ? "#c2410c" : "#0369a1",
-                      border: "1px solid currentColor"
-                    }}>
-                      {selectedTopJob.domain === "business" ? "💼 Business & Finance" : selectedTopJob.domain === "hardware" ? "🔌 Hardware & Embedded" : "💻 Software & AI"}
-                    </span>
-                    <span className={selectedTopJob.category === "internship" ? "badge badge-internship" : "badge badge-info"}>
-                      {selectedTopJob.category === "internship" ? `🎓 Internship • ${selectedTopJob.duration || "3-6 Mos"}` : "👔 Full-Time"}
-                    </span>
-                    {selectedTopJob.verified_partner && (
-                      <span className="badge badge-verified">✓ Verified Partner</span>
-                    )}
-                  </div>
-                  <h2 style={{ fontSize: 24, fontWeight: 900, color: "#0f2b48", lineHeight: 1.25, margin: 0 }}>
-                    {selectedTopJob.title}
-                  </h2>
-                  <div style={{ fontSize: 14, color: "#0073e6", fontWeight: 700, marginTop: 2 }}>
-                    {selectedTopJob.company} · <span style={{ color: "#64748b", fontWeight: 500 }}>{selectedTopJob.department}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Close Top View Button */}
-              <button
-                type="button"
-                onClick={() => setSelectedTopJob(null)}
-                style={{
-                  background: "#f1f5f9",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: 34,
-                  height: 34,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#64748b",
-                  fontWeight: 800,
-                  fontSize: 16,
-                  cursor: "pointer"
-                }}
-                title="Close Top Details"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Highlights row */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 16,
-              flexWrap: "wrap",
-              background: "#f8fafc",
-              padding: "12px 18px",
-              borderRadius: 12,
-              border: "1px solid #e2e8f0",
-              marginBottom: 18
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, fontWeight: 800, color: "#15803d" }}>
-                <DollarSignIcon size={16} />
-                <span>{selectedTopJob.stipend_or_salary || selectedTopJob.salary_range}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#475569", fontWeight: 600 }}>
-                <MapPinIcon size={15} />
-                <span>{selectedTopJob.location}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#0066cc", fontWeight: 700 }}>
-                <UsersIcon size={15} />
-                <span>{selectedTopJob.applicants_count || 240} Applicants</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "#dc2626", fontWeight: 700, marginLeft: "auto" }}>
-                <span>⏳ Closes in {selectedTopJob.deadline_days_left || 5} days</span>
-              </div>
-            </div>
-
-            {/* Top Multi-Round Interview Assessment Roadmap */}
-            <div style={{
-              background: "linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)",
-              borderRadius: 14,
-              padding: "16px 20px",
-              border: "1px solid #bbf7d0",
-              marginBottom: 18
-            }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#166534", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 10 }}>
-                📋 Selection & Interview Roadmap ({selectedTopJob.interview_rounds?.length || 3} Rounds)
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 10 }}>
-                {(selectedTopJob.interview_rounds || [
-                  "Round 1: Online Technical Assessment & Aptitude",
-                  "Round 2: Live Architecture & Coding Screen",
-                  "Round 3: Leadership & Cultural Fitment"
-                ]).map((round, idx) => (
-                  <div key={idx} style={{
-                    background: "#ffffff",
-                    padding: "10px 14px",
-                    borderRadius: 10,
-                    border: "1px solid #dcfce7",
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: 10,
-                    boxShadow: "0 1px 3px rgba(0,0,0,0.03)"
-                  }}>
-                    <span style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: "50%",
-                      background: "#166534",
-                      color: "#ffffff",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 11,
-                      fontWeight: 800,
-                      flexShrink: 0
-                    }}>
-                      {idx + 1}
-                    </span>
-                    <span style={{ fontSize: 12.5, fontWeight: 600, color: "#1e293b", lineHeight: 1.4 }}>{round}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Description & Requirements Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18, marginBottom: 20 }}>
-              <div>
-                <h4 style={{ fontSize: 13, fontWeight: 800, color: "#0f2b48", textTransform: "uppercase", marginBottom: 6 }}>
-                  About the Opportunity
-                </h4>
-                <p style={{ fontSize: 13.5, color: "#334155", lineHeight: 1.65, margin: 0 }}>
-                  {selectedTopJob.description}
-                </p>
-                {selectedTopJob.eligibility && (
-                  <div style={{ marginTop: 10, fontSize: 12.5, color: "#475569" }}>
-                    <strong style={{ color: "#0f2b48" }}>Eligibility:</strong> {selectedTopJob.eligibility}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ background: "#f8fafc", padding: "16px 18px", borderRadius: 12, border: "1px solid #e2e8f0" }}>
-                <h4 style={{ fontSize: 12.5, fontWeight: 800, color: "#0f2b48", textTransform: "uppercase", marginBottom: 8 }}>
-                  ✓ Key Requirements & Benefits
-                </h4>
-                <ul style={{ paddingLeft: 18, fontSize: 13, color: "#475569", lineHeight: 1.65, margin: 0 }}>
-                  {selectedTopJob.requirements?.slice(0, 3).map((req, rIdx) => (
-                    <li key={rIdx}>{req}</li>
-                  ))}
-                  {selectedTopJob.benefits?.slice(0, 2).map((ben, bIdx) => (
-                    <li key={`b-${bIdx}`} style={{ color: "#0369a1", fontWeight: 600 }}>🎁 {ben}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Primary Action Buttons at Top Only */}
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: 12,
-              background: "#f0f9ff",
-              padding: "16px 20px",
-              borderRadius: 14,
-              border: "1px solid #bae6fd"
-            }}>
-              <div style={{ fontSize: 13.5, color: "#0369a1" }}>
-                <strong style={{ color: "#0f2b48" }}>Candidate: Sumii</strong> · Ready to apply on the spot with 1-click.
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={() => onSelectJobForMatcher(selectedTopJob)}
-                  style={{ fontSize: 12.5, padding: "10px 18px", fontWeight: 700 }}
-                >
-                  <SparklesIcon size={14} color="#0073e6" /> Check ATS Score
-                </button>
-
-                {appliedJobIds.has(selectedTopJob.id) ? (
-                  <button
-                    type="button"
-                    disabled
-                    style={{
-                      background: "#ecfdf5",
-                      color: "#047857",
-                      border: "1.5px solid #a7f3d0",
-                      padding: "10px 24px",
-                      borderRadius: 10,
-                      fontWeight: 800,
-                      fontSize: 13.5,
-                      cursor: "default"
-                    }}
-                  >
-                    ✓ Applied on the Spot (96% Match)
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={(e) => handleApplyOnTheSpot(selectedTopJob, e)}
-                    disabled={spotApplyingId === selectedTopJob.id}
-                    style={{
-                      fontSize: 14,
-                      padding: "10px 28px",
-                      fontWeight: 900,
-                      background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)",
-                      boxShadow: "0 4px 16px rgba(0, 102, 204, 0.4)"
-                    }}
-                  >
-                    {spotApplyingId === selectedTopJob.id ? "Applying on the Spot..." : "⚡ Apply Now on the Spot →"}
-                  </button>
-                )}
-              </div>
-            </div>
+            padding: "8px 14px"
+          }}>
+            <MapPinIcon size={18} color="#64748B" />
+            <input
+              type="text"
+              placeholder="Location or Remote..."
+              value={locationSearch}
+              onChange={(e) => setLocationSearch(e.target.value)}
+              style={{ width: "100%", border: "none", background: "transparent", outline: "none", fontSize: 13.5, color: "#0F172A" }}
+            />
           </div>
-        )}
 
-        {/* Section Heading */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 800, color: "#1c4980" }}>
-            {domainFilter === "software" ? "Software & AI Engineering Roles" : domainFilter === "business" ? "Business, Strategy & Finance Roles" : domainFilter === "hardware" ? "Hardware, VLSI & Embedded Roles" : categoryFilter === "internship" ? "Featured Internships & PPO" : categoryFilter === "job" ? "Full-Time Career Positions" : "Live Hiring Opportunities"} ({jobs.length})
-          </h2>
-          <span style={{ fontSize: 13, color: "#5a6a85" }}>Live Catalog • Click any role to view details at the top</span>
-        </div>
-
-        {loading ? (
-          <div style={{ textAlign: "center", padding: 48, color: "#64748b" }}>Loading opportunities...</div>
-        ) : jobs.length === 0 ? (
-          <div className="card" style={{ textAlign: "center", padding: 48, borderRadius: 16 }}>
-            <p style={{ color: "#64748b", fontSize: 16, marginBottom: 16 }}>No opportunities match your current filter combination.</p>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={() => {
-                setDomainFilter("all");
-                setCategoryFilter("all");
-                setLocationFilter("all");
-                setSearch("");
+          {/* Sort By Dropdown */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 12.5, fontWeight: 700, color: "#64748B" }}>Sort:</span>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: "1px solid #CBD5E1",
+                fontSize: 13,
+                fontWeight: 600,
+                color: "#0F172A",
+                background: "#FFFFFF"
               }}
-              style={{ padding: "8px 20px", fontWeight: 700 }}
             >
-              🔄 Reset Filters to View All {allJobsRaw.length || 22} Opportunities
+              <option value="latest">Latest Verified Jobs</option>
+              <option value="applicants">Most Applicants</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* 2-COLUMN LAYOUT: SIDEBAR + MAIN JOB STREAM */}
+      <div style={{ display: "grid", gridTemplateColumns: "270px 1fr", gap: 28, alignItems: "start" }}>
+
+        {/* LEFT FILTERS SIDEBAR */}
+        <aside className="card" style={{ padding: "22px 20px", borderRadius: 18, position: "sticky", top: 110 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 800, color: "#0F172A" }}>Filters</h3>
+            <button
+              onClick={() => {
+                setCategoryFilter("all");
+                setDomainFilter("all");
+                setWorkplaceFilter("all");
+                setExperienceFilter("all");
+                setSelectedSkill("all");
+                setSearch("");
+                setLocationSearch("");
+              }}
+              style={{ border: "none", background: "none", color: "#3157D5", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              Reset All
             </button>
           </div>
-        ) : (
-          jobs.map((job) => {
-            const isSelectedAtTop = selectedTopJob?.id === job.id;
-            const isApplied = appliedJobIds.has(job.id);
-            const isApplying = spotApplyingId === job.id;
 
-            return (
-              <div
-                key={job.id}
-                className="card card-hover"
-                style={{
-                  cursor: "pointer",
-                  border: isSelectedAtTop ? "2px solid #0066cc" : "1px solid #e2e8f0",
-                  boxShadow: isSelectedAtTop ? "0 10px 28px rgba(0, 102, 204, 0.16)" : undefined,
-                  padding: "22px 26px",
-                  transition: "all 0.22s ease",
-                  background: isSelectedAtTop ? "#f8fafc" : "#ffffff"
-                }}
-                onClick={() => handleSelectJobForTop(job)}
-              >
-                {/* Top Badge Row */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    {/* Domain Tag */}
-                    {job.domain === "business" ? (
-                      <span className="badge" style={{ background: "#f0fdfa", color: "#0f766e", border: "1px solid #99f6e4" }}>
-                        💼 Business & Finance
-                      </span>
-                    ) : job.domain === "hardware" ? (
-                      <span className="badge" style={{ background: "#fff7ed", color: "#c2410c", border: "1px solid #fed7aa" }}>
-                        🔌 Hardware & Embedded
-                      </span>
-                    ) : (
-                      <span className="badge" style={{ background: "#f0f9ff", color: "#0369a1", border: "1px solid #bae6fd" }}>
-                        💻 Software & AI
-                      </span>
-                    )}
+          {/* Filter 1: Domain Track */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
+              Domain & Engineering Track
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                { id: "all", label: "All Engineering Tracks" },
+                { id: "software", label: "💻 Software & AI" },
+                { id: "business", label: "📈 Product & Growth" },
+                { id: "hardware", label: "🔌 Hardware & Robotics" }
+              ].map(d => (
+                <button
+                  key={d.id}
+                  onClick={() => setDomainFilter(d.id)}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 8,
+                    textAlign: "left",
+                    fontSize: 12.5,
+                    fontWeight: domainFilter === d.id ? 800 : 500,
+                    background: domainFilter === d.id ? "#EEF2FF" : "transparent",
+                    color: domainFilter === d.id ? "#3157D5" : "#475569",
+                    border: "none"
+                  }}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {job.category === "internship" ? (
-                      <span className="badge badge-internship">🎓 Internship • {job.duration || "3-6 Mos"}</span>
-                    ) : (
-                      <span className="badge badge-info">👔 Full-Time</span>
-                    )}
+          {/* Filter 2: Opportunity Type */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
+              Opportunity Type
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                { id: "all", label: "All Types" },
+                { id: "internship", label: "🎓 Internships & PPO" },
+                { id: "job", label: "👔 Full-Time Jobs" }
+              ].map(c => (
+                <button
+                  key={c.id}
+                  onClick={() => setCategoryFilter(c.id)}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 8,
+                    textAlign: "left",
+                    fontSize: 12.5,
+                    fontWeight: categoryFilter === c.id ? 800 : 500,
+                    background: categoryFilter === c.id ? "#EEF2FF" : "transparent",
+                    color: categoryFilter === c.id ? "#3157D5" : "#475569",
+                    border: "none"
+                  }}
+                >
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {job.verified_partner && (
-                      <span className="badge badge-verified">✓ Verified Partner</span>
-                    )}
+          {/* Filter 3: Workplace Arrangement */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
+              Workplace Type
+            </label>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                { id: "all", label: "Any Workplace" },
+                { id: "remote", label: "🌐 Remote Only" },
+                { id: "hybrid", label: "🏢 Hybrid / Onsite" }
+              ].map(w => (
+                <button
+                  key={w.id}
+                  onClick={() => setWorkplaceFilter(w.id)}
+                  style={{
+                    padding: "7px 12px",
+                    borderRadius: 8,
+                    textAlign: "left",
+                    fontSize: 12.5,
+                    fontWeight: workplaceFilter === w.id ? 800 : 500,
+                    background: workplaceFilter === w.id ? "#EEF2FF" : "transparent",
+                    color: workplaceFilter === w.id ? "#3157D5" : "#475569",
+                    border: "none"
+                  }}
+                >
+                  {w.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-                    {isSelectedAtTop && (
-                      <span className="badge badge-primary" style={{ background: "#0066cc", color: "#ffffff" }}>
-                        ★ Viewing Details at Top
-                      </span>
-                    )}
-                  </div>
+          {/* Filter 4: Quick Skills Filter Chips */}
+          <div>
+            <label style={{ fontSize: 12.5, fontWeight: 700, color: "#475569", marginBottom: 8, display: "block" }}>
+              Popular Technologies
+            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {["Python", "FastAPI", "React", "Docker", "Java", "MongoDB", "PyTorch"].map(s => {
+                const isSelected = selectedSkill.toLowerCase() === s.toLowerCase();
+                return (
+                  <button
+                    key={s}
+                    onClick={() => setSelectedSkill(isSelected ? "all" : s)}
+                    style={{
+                      padding: "4px 9px",
+                      borderRadius: 6,
+                      fontSize: 11.5,
+                      fontWeight: 700,
+                      background: isSelected ? "#3157D5" : "#F1F5F9",
+                      color: isSelected ? "#FFFFFF" : "#475569",
+                      border: "none"
+                    }}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </aside>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, fontSize: 12, color: "#dc2626", fontWeight: 700 }}>
-                    <span>⏳ Closes in {job.deadline_days_left || 5} days</span>
-                  </div>
-                </div>
+        {/* MAIN JOBS SECTION */}
+        <main style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-                {/* Company & Title Header (Unstop Style) */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 14 }}>
+          {/* TOP DETAILS VIEW: Displays Full Opportunity Information at the Top */}
+          {selectedTopJob && (
+            <div
+              id="top-job-details-section"
+              className="card"
+              style={{
+                borderRadius: 20,
+                padding: "26px 30px",
+                border: "2px solid #3157D5",
+                boxShadow: "0 12px 36px rgba(49, 87, 213, 0.16)",
+                marginBottom: 8,
+                animation: "modalEnter 0.25s ease-out"
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <div style={{
                     width: 48,
                     height: 48,
                     borderRadius: 12,
-                    background: job.company_logo_color || "#1c4980",
-                    color: "#ffffff",
+                    background: selectedTopJob.company_logo_color || "#3157D5",
+                    color: "#FFFFFF",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 900,
-                    fontSize: 18,
-                    boxShadow: "0 4px 10px rgba(0, 0, 0, 0.1)"
+                    fontSize: 20
                   }}>
-                    {job.company ? job.company[0] : "O"}
+                    {selectedTopJob.company ? selectedTopJob.company[0] : "O"}
                   </div>
-
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginBottom: 3, lineHeight: 1.3 }}>
-                      {job.title}
-                    </h3>
-                    <div style={{ fontSize: 14, color: "#0073e6", fontWeight: 700 }}>
-                      {job.company} · <span style={{ color: "#64748b", fontWeight: 500 }}>{job.department}</span>
+                  <div>
+                    <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0F172A", margin: 0 }}>
+                      {selectedTopJob.title}
+                    </h2>
+                    <div style={{ fontSize: 13.5, color: "#3157D5", fontWeight: 700, marginTop: 2 }}>
+                      {selectedTopJob.company} · <span style={{ color: "#64748B", fontWeight: 500 }}>{selectedTopJob.department || "Core Platform"}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Unstop Highlights Badges (Stipend, Location, Applicants) */}
-                <div style={{
-                  background: "linear-gradient(135deg, #f8fafc 0%, #f0fdf4 100%)",
-                  borderRadius: 12,
-                  padding: "12px 16px",
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 12,
-                  marginBottom: 14,
-                  border: "1px solid #dcfce7"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: "#15803d" }}>
-                    <DollarSignIcon size={16} />
-                    <span>{job.stipend_or_salary || job.salary_range}</span>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#475569", fontWeight: 600 }}>
-                    <MapPinIcon size={15} />
-                    <span>{job.location}</span>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "#0066cc", fontWeight: 700 }}>
-                    <UsersIcon size={15} />
-                    <span>{job.applicants_count || 240} Applicants</span>
-                  </div>
-                </div>
-
-                {/* Eligibility Tag */}
-                {job.eligibility && (
-                  <div style={{ fontSize: 12.5, color: "#475569", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontWeight: 800, color: "#1c4980" }}>Eligibility:</span>
-                    <span>{job.eligibility}</span>
-                  </div>
-                )}
-
-                {/* Skills tags */}
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                  {job.skills.map((skill, idx) => (
-                    <span key={idx} className="badge badge-neutral" style={{ fontSize: 11, background: "#edf2f7" }}>
-                      {skill}
-                    </span>
-                  ))}
-                </div>
-
-                {/* Card Footer Actions */}
-                <div style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  borderTop: "1px solid #f1f5f9",
-                  paddingTop: 12,
-                  flexWrap: "wrap",
-                  gap: 10
-                }}>
+                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                   <button
-                    type="button"
+                    onClick={(e) => handleToggleSave(selectedTopJob, e)}
                     className="btn btn-secondary"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectJobForMatcher(job);
-                    }}
-                    style={{ fontSize: 12, padding: "8px 14px", fontWeight: 700 }}
+                    style={{ padding: "8px 14px", fontSize: 13 }}
                   >
-                    <SparklesIcon size={14} color="#0073e6" /> Upload Resume & Check ATS Score
+                    {savedJobIds.has(selectedTopJob.id) ? "❤️ Saved" : "🤍 Save Job"}
                   </button>
 
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <button
-                      type="button"
-                      className="btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleSelectJobForTop(job);
-                      }}
-                      style={{
-                        fontSize: 12.5,
-                        padding: "8px 14px",
-                        fontWeight: 700,
-                        background: isSelectedAtTop ? "#0066cc" : "#f1f5f9",
-                        color: isSelectedAtTop ? "#ffffff" : "#0f2b48",
-                        border: isSelectedAtTop ? "1px solid #0066cc" : "1px solid #cbd5e1",
-                        borderRadius: 8,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6
-                      }}
-                    >
-                      <span>{isSelectedAtTop ? "Viewing at Top ✓" : "Show Details at Top ▴"}</span>
-                    </button>
-
-                    {isApplied ? (
-                      <button
-                        type="button"
-                        disabled
-                        style={{
-                          fontSize: 13,
-                          padding: "8px 20px",
-                          fontWeight: 800,
-                          background: "#ecfdf5",
-                          color: "#047857",
-                          border: "1px solid #a7f3d0",
-                          borderRadius: 8,
-                          cursor: "default"
-                        }}
-                      >
-                        ✓ Applied
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        onClick={(e) => handleApplyOnTheSpot(job, e)}
-                        disabled={isApplying}
-                        style={{
-                          fontSize: 13,
-                          padding: "8px 22px",
-                          fontWeight: 800,
-                          boxShadow: "0 4px 12px rgba(0, 102, 204, 0.35)",
-                          background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)"
-                        }}
-                      >
-                        {isApplying ? "Applying..." : "⚡ Apply Now on the Spot →"}
-                      </button>
-                    )}
-                  </div>
+                  <button
+                    onClick={(e) => handleApplyOnTheSpot(selectedTopJob, e)}
+                    className="btn btn-primary"
+                    disabled={appliedJobIds.has(selectedTopJob.id)}
+                    style={{ padding: "9px 20px", fontSize: 13 }}
+                  >
+                    {appliedJobIds.has(selectedTopJob.id) ? "✓ Applied" : "⚡ Apply Now on the Spot"}
+                  </button>
                 </div>
               </div>
-            );
-          })
-        )}
+
+              {/* Description & Requirements Strip */}
+              <p style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.6, marginBottom: 16 }}>
+                {selectedTopJob.description}
+              </p>
+
+              {/* Requirements & Skills */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                {(selectedTopJob.skills || []).map((sk, idx) => (
+                  <span key={idx} className="badge badge-primary" style={{ fontSize: 11.5 }}>
+                    {sk}
+                  </span>
+                ))}
+              </div>
+
+              {/* Multi-round hiring progression preview */}
+              {selectedTopJob.interview_rounds && (
+                <div style={{ padding: "12px 16px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #E2E8F0" }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: "#0F172A", marginBottom: 6, textTransform: "uppercase" }}>
+                    Verified Hiring Assessment Rounds:
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#475569" }}>
+                    {selectedTopJob.interview_rounds.map((r, i) => (
+                      <span key={i} style={{ background: "#FFFFFF", padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1" }}>
+                        {r}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Job stream count header */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>
+              Showing <span style={{ color: "#3157D5" }}>{filteredJobs.length}</span> Opportunities
+            </div>
+            <div style={{ fontSize: 12, color: "#64748B" }}>
+              Updated real-time from TalentAI Cloud Database
+            </div>
+          </div>
+
+          {/* JOB CARDS LIST */}
+          {loading ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[1, 2, 3].map(n => (
+                <div key={n} className="card skeleton" style={{ height: 160, borderRadius: 16 }} />
+              ))}
+            </div>
+          ) : filteredJobs.length === 0 ? (
+            <div className="card" style={{ padding: "60px 24px", textAlign: "center" }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>🔍</div>
+              <h3 style={{ fontSize: 18, fontWeight: 800, color: "#0F172A", marginBottom: 6 }}>
+                No Jobs Found Matching Your Criteria
+              </h3>
+              <p style={{ fontSize: 13.5, color: "#64748B", maxWidth: 440, margin: "0 auto 18px" }}>
+                Try adjusting your search keywords, workplace type, or resetting filters to explore all available engineering positions.
+              </p>
+              <button
+                onClick={() => {
+                  setSearch("");
+                  setLocationSearch("");
+                  setCategoryFilter("all");
+                  setDomainFilter("all");
+                }}
+                className="btn btn-primary"
+                style={{ padding: "8px 20px" }}
+              >
+                Reset All Filters
+              </button>
+            </div>
+          ) : (
+            filteredJobs.map((job) => {
+              const isApplied = appliedJobIds.has(job.id);
+              const isSaved = savedJobIds.has(job.id);
+
+              return (
+                <div
+                  key={job.id}
+                  onClick={() => handleSelectJobForTop(job)}
+                  className="card card-hover"
+                  style={{
+                    padding: "22px 26px",
+                    borderRadius: 16,
+                    cursor: "pointer",
+                    border: selectedTopJob?.id === job.id ? "1.5px solid #3157D5" : "1px solid #E2E8F0"
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                      <div style={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 12,
+                        background: job.company_logo_color || "#3157D5",
+                        color: "#FFFFFF",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontWeight: 900,
+                        fontSize: 18
+                      }}>
+                        {job.company ? job.company[0] : "C"}
+                      </div>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <h3 style={{ fontSize: 17, fontWeight: 800, color: "#0F172A", margin: 0 }}>
+                            {job.title}
+                          </h3>
+                          {job.verified_partner && (
+                            <span className="badge badge-success" style={{ fontSize: 10.5 }}>✓ Verified Partner</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 13, color: "#3157D5", fontWeight: 700, marginTop: 2 }}>
+                          {job.company} · <span style={{ color: "#64748B", fontWeight: 500 }}>{job.location}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bookmark & Apply Actions */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <button
+                        onClick={(e) => handleToggleSave(job, e)}
+                        title={isSaved ? "Remove Bookmark" : "Save Job"}
+                        style={{
+                          background: isSaved ? "#FEE2E2" : "#F1F5F9",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "6px 10px",
+                          fontSize: 14,
+                          cursor: "pointer"
+                        }}
+                      >
+                        {isSaved ? "❤️" : "🤍"}
+                      </button>
+
+                      <button
+                        onClick={(e) => handleApplyOnTheSpot(job, e)}
+                        className={isApplied ? "btn btn-secondary" : "btn btn-primary"}
+                        disabled={isApplied || spotApplyingId === job.id}
+                        style={{ padding: "8px 18px", fontSize: 13 }}
+                      >
+                        {spotApplyingId === job.id ? "Applying..." : isApplied ? "✓ Applied" : "⚡ Apply on the Spot"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Badges strip */}
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "14px 0" }}>
+                    <span className="badge badge-neutral">💰 {job.stipend_or_salary}</span>
+                    <span className="badge badge-neutral">💼 {job.type}</span>
+                    <span className="badge badge-neutral">⏳ {job.duration || "Permanent"}</span>
+                    <span className="badge badge-neutral">👥 {job.applicants_count || 120} Applicants</span>
+                  </div>
+
+                  {/* Skills strip */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {(job.skills || []).slice(0, 5).map((sk, i) => (
+                        <span key={i} style={{ background: "#EEF2FF", color: "#3157D5", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6 }}>
+                          {sk}
+                        </span>
+                      ))}
+                    </div>
+
+                    <span style={{ fontSize: 12, color: "#3157D5", fontWeight: 700 }}>
+                      View Details & Requirements →
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </main>
       </div>
     </div>
   );

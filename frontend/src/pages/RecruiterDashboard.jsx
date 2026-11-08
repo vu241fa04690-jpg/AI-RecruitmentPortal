@@ -30,6 +30,7 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
   // Candidate Comparison State
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
+  const [inspectingCandidate, setInspectingCandidate] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -423,6 +424,14 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
                   <td style={{ padding: "16px 20px", textAlign: "right" }}>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
                       <button
+                        className="btn btn-secondary"
+                        onClick={() => setInspectingCandidate(app)}
+                        style={{ padding: "6px 10px", fontSize: 12, fontWeight: 700 }}
+                      >
+                        👁️ Profile
+                      </button>
+
+                      <button
                         className="btn btn-primary"
                         onClick={() => setEmailCandidate({
                           id: app.candidate_id || app.id,
@@ -770,6 +779,128 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Profile Inspection Modal */}
+      {inspectingCandidate && (
+        <div className="modal-overlay" onClick={() => setInspectingCandidate(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680, padding: 32 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, borderBottom: "1px solid #E2E8F0", paddingBottom: 16 }}>
+              <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+                <div style={{
+                  width: 50,
+                  height: 50,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #3157D5 0%, #7657E8 100%)",
+                  color: "#FFFFFF",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 900,
+                  fontSize: 20
+                }}>
+                  {inspectingCandidate.candidate_name ? inspectingCandidate.candidate_name[0] : "C"}
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 20, fontWeight: 800, color: "#0F172A", margin: 0 }}>
+                    {inspectingCandidate.candidate_name}
+                  </h2>
+                  <p style={{ fontSize: 13, color: "#64748B", margin: "2px 0 0" }}>
+                    {inspectingCandidate.candidate_email} · Applied for <strong>{inspectingCandidate.job_title}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setInspectingCandidate(null)}
+                style={{ background: "#F1F5F9", border: "none", borderRadius: 8, padding: "6px 12px", fontWeight: 800, cursor: "pointer" }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* AI Match Overview */}
+            <div style={{
+              background: "#F8FAFC",
+              borderRadius: 14,
+              padding: "16px 20px",
+              marginBottom: 20,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center"
+            }}>
+              <div>
+                <span className="badge badge-primary" style={{ marginBottom: 4 }}>AI QUALIFICATION EVALUATION</span>
+                <div style={{ fontSize: 13, color: "#475569" }}>
+                  {inspectingCandidate.match_breakdown?.summary || "Strong technical and architectural candidate alignment."}
+                </div>
+              </div>
+              <div style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #10B981, #059669)",
+                color: "#FFFFFF",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontWeight: 900,
+                fontSize: 16
+              }}>
+                {inspectingCandidate.match_score}%
+              </div>
+            </div>
+
+            {/* Skills Verified */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 8, display: "block" }}>
+                Candidate Technical Skills:
+              </label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(inspectingCandidate.candidate_skills || []).map((s, idx) => (
+                  <span key={idx} className="badge badge-primary" style={{ fontSize: 12 }}>
+                    {s}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Cover Letter / Statement */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: "#0F172A", marginBottom: 6, display: "block" }}>
+                Candidate Cover Note & Summary:
+              </label>
+              <div style={{ padding: "14px 16px", background: "#F1F5F9", borderRadius: 10, fontSize: 13, color: "#334155", lineHeight: 1.6 }}>
+                {inspectingCandidate.cover_letter || "Candidate applied on the spot via TalentAI Portal with verified resume credentials."}
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", borderTop: "1px solid #E2E8F0", paddingTop: 16 }}>
+              <button
+                onClick={() => {
+                  const candidateToEmail = inspectingCandidate;
+                  setInspectingCandidate(null);
+                  setEmailCandidate(candidateToEmail);
+                }}
+                className="btn btn-primary"
+                style={{ background: "#059669" }}
+              >
+                Send Selection Offer
+              </button>
+
+              <button
+                onClick={() => {
+                  const candidateToSchedule = inspectingCandidate;
+                  setInspectingCandidate(null);
+                  onScheduleInterview(candidateToSchedule);
+                }}
+                className="btn btn-primary"
+              >
+                Schedule Interview
+              </button>
+            </div>
           </div>
         </div>
       )}

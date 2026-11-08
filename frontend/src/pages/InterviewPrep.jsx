@@ -128,6 +128,111 @@ When put(key, value): If key exists, update value and move to head. If new key a
         self.head, self.tail = Node(0, 0), Node(0, 0)
         self.head.next = self.tail
         self.tail.prev = self.head`
+  },
+  {
+    id: "q-7",
+    category: "python",
+    categoryLabel: "Python",
+    difficulty: "Medium",
+    companies: ["Meta", "Netflix", "CognitiveFlow"],
+    question: "What is Python's Global Interpreter Lock (GIL) and how does it affect CPU-bound vs I/O-bound concurrency?",
+    key_focus: "GIL mutex mechanism, single-threaded execution of bytecode, multiprocessing vs asyncio for parallelism.",
+    model_answer: `Key Concepts:
+- The GIL is a mutex that prevents multiple native OS threads from executing Python bytecodes simultaneously in CPython.
+- For I/O-bound tasks: Python threads release the GIL while waiting for network or disk operations, so threading and asyncio yield massive throughput gains.
+- For CPU-bound tasks: Multi-threading does not achieve true multi-core speedup due to GIL contention. Solution: Use the 'multiprocessing' module or offload to C-extensions (NumPy, Cython).`,
+    sample_code: `from multiprocessing import Pool
+def cpu_heavy_task(n):
+    return sum(i * i for i in range(n))
+
+if __name__ == '__main__':
+    with Pool() as p:
+        results = p.map(cpu_heavy_task, [10**6, 10**6])`
+  },
+  {
+    id: "q-8",
+    category: "java",
+    categoryLabel: "Java",
+    difficulty: "Medium",
+    companies: ["Amazon", "Oracle", "Goldman Sachs"],
+    question: "Explain the JVM Memory Architecture: Heap vs Stack, and how Garbage Collection manages objects.",
+    key_focus: "Young Generation (Eden, Survivor), Old/Tenured Generation, G1GC / ZGC algorithms, OutOfMemoryError.",
+    model_answer: `Key Components:
+1. Stack Memory: Stores primitive variables and references to heap objects per thread; fast, LIFO, deallocated on method return.
+2. Heap Memory: Shared across threads storing actual objects and class instances. Divided into Young Gen (Eden, S0, S1) and Old Generation.
+3. Garbage Collection: Minor GC reclaims short-lived objects from Eden. Surviving objects age and are tenured to Old Gen where Major/Full GC runs. Modern JVMs use G1GC or ZGC for sub-millisecond pauses.`,
+    sample_code: `// Stack reference 'user' points to Heap instance
+User user = new User("Sumii", 2026);`
+  },
+  {
+    id: "q-9",
+    category: "javascript",
+    categoryLabel: "JavaScript",
+    difficulty: "Medium",
+    companies: ["Uber", "Airbnb", "Razorpay"],
+    question: "Explain the JavaScript Event Loop: Microtasks (Promises) vs Macrotasks (setTimeout).",
+    key_focus: "Call stack, Web APIs, Microtask queue priority over Task queue, event loop tick.",
+    model_answer: `Execution Lifecycle:
+1. Call Stack: Synchronous code executes immediately until completion.
+2. Microtask Queue: Includes Promise.then callbacks, queueMicrotask, MutationObserver. Always drained completely after the current task before any macrotask runs!
+3. Macrotask Queue: Includes setTimeout, setInterval, setImmediate, I/O events.
+Rule: Microtasks have higher priority than macrotasks.`,
+    sample_code: `console.log(1);
+setTimeout(() => console.log(2), 0);
+Promise.resolve().then(() => console.log(3));
+console.log(4);
+// Output order: 1, 4, 3, 2`
+  },
+  {
+    id: "q-10",
+    category: "dbms",
+    categoryLabel: "DBMS & SQL",
+    difficulty: "Medium",
+    companies: ["Microsoft", "Flipkart", "Walmart"],
+    question: "Explain ACID Properties and how Database Indexing (B+ Trees) speeds up query lookups.",
+    key_focus: "Atomicity, Consistency, Isolation, Durability; B+ Tree node layout and range scan efficiency.",
+    model_answer: `ACID Principles:
+- Atomicity: Transactions are all-or-nothing (WAL / rollback).
+- Consistency: DB invariants, constraints, and cascade rules maintained.
+- Isolation: Concurrent transactions do not interfere (Read Committed, Serializable).
+- Durability: Committed transactions persist even across power crashes.
+B+ Tree Indexing:
+Data records are stored in sorted leaf nodes linked as a doubly linked list. Non-leaf nodes act as routing guides. Search is O(log N) disk block reads.`,
+    sample_code: `CREATE INDEX idx_candidate_email ON applications(candidate_email);
+-- Speeds up exact and prefix searches from O(N) full table scan to O(log N)`
+  },
+  {
+    id: "q-11",
+    category: "os",
+    categoryLabel: "Operating Systems",
+    difficulty: "Medium",
+    companies: ["Intel", "Qualcomm", "Cisco"],
+    question: "What are the four necessary Coffman conditions for a Deadlock, and how can they be prevented?",
+    key_focus: "Mutual Exclusion, Hold and Wait, No Preemption, Circular Wait; Banker's Algorithm.",
+    model_answer: `Coffman Conditions:
+1. Mutual Exclusion: At least one resource held in non-shareable mode.
+2. Hold and Wait: A process holds resources while requesting new ones.
+3. No Preemption: Resources cannot be forcibly taken; must be released voluntarily.
+4. Circular Wait: A closed chain of processes each waiting for a resource held by the next.
+Prevention: Eliminating Circular Wait is most practical (impose a strict linear ordering on all resource acquisitions).`,
+    sample_code: null
+  },
+  {
+    id: "q-12",
+    category: "cn",
+    categoryLabel: "Computer Networks",
+    difficulty: "Medium",
+    companies: ["Cloudflare", "Akamai", "Google"],
+    question: "Describe the TCP 3-Way Handshake and the difference between TCP and UDP.",
+    key_focus: "SYN, SYN-ACK, ACK sequence numbers, reliability vs low-latency datagrams.",
+    model_answer: `TCP 3-Way Handshake:
+1. Client sends SYN (Synchronize sequence number X).
+2. Server responds with SYN-ACK (Server sequence Y, Acknowledgement X + 1).
+3. Client sends ACK (Acknowledgement Y + 1). Connection is established (ESTABLISHED state).
+Comparison:
+- TCP: Connection-oriented, guaranteed in-order delivery, flow control, congestion control (HTTP/1.1, HTTP/2, SSH).
+- UDP: Connectionless, lightweight, no retransmissions, ideal for real-time gaming, live audio/video streaming, and DNS.`,
+    sample_code: null
   }
 ];
 
@@ -1217,22 +1322,58 @@ export default function InterviewPrep() {
           💻 DSA & Algorithms
         </button>
         <button
+          className={`filter-pill ${selectedCategory === "python" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("python")}
+        >
+          🐍 Python
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "java" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("java")}
+        >
+          ☕ Java
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "javascript" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("javascript")}
+        >
+          ⚡ JavaScript
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "frontend" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("frontend")}
+        >
+          ⚛️ React
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "dbms" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("dbms")}
+        >
+          🗄️ DBMS & SQL
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "os" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("os")}
+        >
+          🖥️ Operating Systems
+        </button>
+        <button
+          className={`filter-pill ${selectedCategory === "cn" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("cn")}
+        >
+          🌐 Computer Networks
+        </button>
+        <button
           className={`filter-pill ${selectedCategory === "backend" ? "filter-pill-active" : ""}`}
           onClick={() => setSelectedCategory("backend")}
         >
           ⚙️ Backend & FastAPI
         </button>
         <button
-          className={`filter-pill ${selectedCategory === "frontend" ? "filter-pill-active" : ""}`}
-          onClick={() => setSelectedCategory("frontend")}
+          className={`filter-pill ${selectedCategory === "behavioral" ? "filter-pill-active" : ""}`}
+          onClick={() => setSelectedCategory("behavioral")}
         >
-          🌐 Frontend & React
-        </button>
-        <button
-          className={`filter-pill ${selectedCategory === "cloud" ? "filter-pill-active" : ""}`}
-          onClick={() => setSelectedCategory("cloud")}
-        >
-          ☁️ AWS & Cloud System Design
+          🤝 HR & Behavioral
         </button>
       </div>
 

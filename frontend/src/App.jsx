@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Navbar from "./components/Navbar";
+import LandingPage from "./pages/LandingPage";
+import CandidateDashboard from "./pages/CandidateDashboard";
 import JobBoard from "./pages/JobBoard";
 import ResumeMatcher from "./pages/ResumeMatcher";
 import ApplicationsView from "./pages/ApplicationsView";
@@ -17,14 +19,14 @@ import { api } from "./services/api";
 
 function MainApp() {
   const { user, logout, switchDemoRole } = useAuth();
-  const [activeTab, setActiveTab] = useState("jobs");
+  const [activeTab, setActiveTab] = useState(user ? "candidate-dashboard" : "landing");
   const [backendStatus, setBackendStatus] = useState({ connected: false });
   const [matcherTargetJob, setMatcherTargetJob] = useState(null);
-  const [isGuestMode, setIsGuestMode] = useState(false);
+  const [initialJobFilter, setInitialJobFilter] = useState(null);
   const [authMode, setAuthMode] = useState("login");
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Modals state
-  const [authConfig, setAuthConfig] = useState({ isOpen: false, mode: "login" });
   const [applyingJob, setApplyingJob] = useState(null);
   const [isPostJobOpen, setIsPostJobOpen] = useState(false);
   const [schedulingApp, setSchedulingApp] = useState(null);
@@ -37,6 +39,19 @@ function MainApp() {
     const interval = setInterval(checkHealth, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Update tab automatically on login/logout
+  useEffect(() => {
+    if (user) {
+      if (user.role === "recruiter" || user.role === "admin") {
+        setActiveTab("recruiter-dashboard");
+      } else {
+        setActiveTab("candidate-dashboard");
+      }
+    } else {
+      setActiveTab("landing");
+    }
+  }, [user?.role]);
 
   const checkHealth = async () => {
     const status = await api.checkHealth();
@@ -72,63 +87,47 @@ function MainApp() {
     } else if (newRole === "admin") {
       setActiveTab("admin-dashboard");
     } else {
-      setActiveTab("jobs");
+      setActiveTab("candidate-dashboard");
     }
     showToast(`Switched view to ${newRole.toUpperCase()} mode.`);
   };
 
   const handleRequireAuth = (mode = "register", targetJob = null) => {
     setAuthMode(mode);
-    setIsGuestMode(false); // Instantly redirects to the full-screen Sign Up / Sign In page!
+    setIsAuthModalOpen(true);
     if (targetJob) {
       setApplyingJob(targetJob);
     }
   };
 
-  // FIRST PROJECT STARTING VIEW: Full-screen Login & Sign Up page if user is not logged in
-  if (!user && !isGuestMode) {
-    return (
-      <AuthPage
-        isFullScreen={true}
-        defaultMode={authMode}
-        onSuccess={() => {
-          showToast("Authenticated successfully with 256-bit JWT session.");
-        }}
-        onContinueAsGuest={() => {
-          setIsGuestMode(true);
-          showToast("Viewing Recruitment Portal as guest. Sign in anytime to apply or post.");
-        }}
-      />
-    );
-  }
-
   return (
-    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f4f6fa" }}>
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#F5F7FC" }}>
       {/* Toast Notification */}
       {toastMessage && (
         <div style={{
           position: "fixed",
           bottom: 24,
           right: 24,
-          background: "#1c4980",
-          color: "#ffffff",
+          background: "#172554",
+          color: "#FFFFFF",
           padding: "12px 22px",
           borderRadius: 12,
-          boxShadow: "0 10px 25px rgba(28, 73, 128, 0.4)",
+          boxShadow: "0 10px 30px rgba(23, 37, 84, 0.3)",
           fontSize: 14,
           fontWeight: 700,
           zIndex: 9999,
           display: "flex",
           alignItems: "center",
           gap: 10,
-          border: "1px solid #3b82f6"
+          border: "1px solid #3157D5",
+          animation: "modalEnter 0.2s ease"
         }}>
-          <span style={{ color: "#38bdf8" }}>⚡</span>
+          <span style={{ color: "#7657E8" }}>⚡</span>
           <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Unstop Inspired Navbar */}
+      {/* TalentAI Navigation Bar */}
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -146,16 +145,61 @@ function MainApp() {
         onOpenAuth={(mode = "login") => handleRequireAuth(mode)}
         onLogout={() => {
           logout();
-          setIsGuestMode(false); // Returns directly to full-screen Login & Sign Up page!
-          showToast("Signed out. Returning to Login page.");
+          setActiveTab("landing");
+          showToast("Signed out successfully.");
         }}
       />
 
       {/* Active Tab View */}
       <main style={{ flex: 1 }}>
+        {/* 1. Stunning Landing Page */}
+        {activeTab === "landing" && (
+          <LandingPage
+            onExploreJobs={(filter) => {
+              if (filter) setInitialJobFilter(filter);
+              setActiveTab("jobs");
+            }}
+            onHireTalent={() => {
+              if (user && (user.role === "recruiter" || user.role === "admin")) {
+                setActiveTab("recruiter-dashboard");
+              } else {
+                handleRequireAuth("register");
+              }
+            }}
+            onSelectJob={(job) => {
+              setMatcherTargetJob(job);
+              if (!user) {
+                handleRequireAuth("register", job);
+              } else {
+                setApplyingJob(job);
+              }
+            }}
+            onOpenAuth={handleRequireAuth}
+          />
+        )}
+
+        {/* 2. Unified Candidate Dashboard */}
+        {activeTab === "candidate-dashboard" && (
+          <CandidateDashboard
+            user={user}
+            onNavigateJobs={() => setActiveTab("jobs")}
+            onNavigateMatcher={() => setActiveTab("matcher")}
+            onNavigateApplications={() => setActiveTab("applications")}
+            onNavigateInterviews={() => setActiveTab("interviews")}
+            onNavigatePrep={() => setActiveTab("prep")}
+            onNavigateBuilder={() => setActiveTab("builder")}
+            onLogout={() => {
+              logout();
+              setActiveTab("landing");
+            }}
+          />
+        )}
+
+        {/* 3. Job Explorer & Search */}
         {activeTab === "jobs" && (
           <JobBoard
             initialCategory="all"
+            initialFilter={initialJobFilter}
             user={user}
             onRequireAuth={handleRequireAuth}
             onApplyJob={(job) => {
@@ -169,22 +213,7 @@ function MainApp() {
           />
         )}
 
-        {activeTab === "internships" && (
-          <JobBoard
-            initialCategory="internship"
-            user={user}
-            onRequireAuth={handleRequireAuth}
-            onApplyJob={(job) => {
-              if (!user) {
-                handleRequireAuth("register", job);
-              } else {
-                setApplyingJob(job);
-              }
-            }}
-            onSelectJobForMatcher={handleSelectJobForMatcher}
-          />
-        )}
-
+        {/* 4. AI Resume Matcher & ATS Scoring */}
         {activeTab === "matcher" && (
           <ResumeMatcher
             preselectedJob={matcherTargetJob}
@@ -194,6 +223,7 @@ function MainApp() {
           />
         )}
 
+        {/* 5. Candidate Applications Tracker */}
         {activeTab === "applications" && (
           <ApplicationsView
             user={user}
@@ -202,20 +232,24 @@ function MainApp() {
           />
         )}
 
+        {/* 6. Candidate Interview Schedules & Sandbox */}
         {activeTab === "interviews" && (
           <InterviewsView
             user={user}
           />
         )}
 
+        {/* 7. AI Mock Interview Prep (Technical & HR) */}
         {activeTab === "prep" && (
           <InterviewPrep />
         )}
 
+        {/* 8. ATS Resume Builder */}
         {activeTab === "builder" && (
           <ResumeBuilder user={user} onBackToJobs={() => setActiveTab("jobs")} />
         )}
 
+        {/* 9. Recruiter Dashboard */}
         {activeTab === "recruiter-dashboard" && (
           (userRole === "admin" || userRole === "recruiter") ? (
             <RecruiterDashboard
@@ -223,30 +257,31 @@ function MainApp() {
               onScheduleInterview={(app) => setSchedulingApp(app)}
             />
           ) : (
-            <div style={{ maxWidth: 650, margin: "60px auto", padding: "40px", background: "#ffffff", borderRadius: 16, textAlign: "center", boxShadow: "0 10px 25px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0" }}>
+            <div style={{ maxWidth: 640, margin: "60px auto", padding: "40px", background: "#FFFFFF", borderRadius: 18, textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.06)", border: "1px solid #E2E8F0" }}>
               <div style={{ fontSize: 44, marginBottom: 12 }}>🛡️</div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: "#0f2b48", marginBottom: 8 }}>Restricted to Authorized Admin</h2>
-              <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-                Candidate applications, candidate requests, and pipeline management are strictly accessible only by the sole platform administrator and hiring recruiter.
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: "#172554", marginBottom: 8 }}>Restricted to Authorized Admin / Recruiter</h2>
+              <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+                Candidate applications, candidate requests, and pipeline management are strictly accessible only by the authorized platform administrator and hiring recruiter.
               </p>
-              <button className="btn btn-primary" onClick={() => setActiveTab("jobs")} style={{ padding: "10px 24px", fontWeight: 800 }}>
+              <button className="btn btn-primary" onClick={() => setActiveTab("jobs")} style={{ padding: "10px 24px" }}>
                 Return to Live Opportunities
               </button>
             </div>
           )
         )}
 
+        {/* 10. Platform Admin Dashboard */}
         {activeTab === "admin-dashboard" && (
           (userRole === "admin" || userRole === "recruiter") ? (
             <AdminDashboard />
           ) : (
-            <div style={{ maxWidth: 650, margin: "60px auto", padding: "40px", background: "#ffffff", borderRadius: 16, textAlign: "center", boxShadow: "0 10px 25px rgba(0,0,0,0.06)", border: "1px solid #e2e8f0" }}>
+            <div style={{ maxWidth: 640, margin: "60px auto", padding: "40px", background: "#FFFFFF", borderRadius: 18, textAlign: "center", boxShadow: "0 10px 30px rgba(0,0,0,0.06)", border: "1px solid #E2E8F0" }}>
               <div style={{ fontSize: 44, marginBottom: 12 }}>🛡️</div>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: "#0f2b48", marginBottom: 8 }}>Restricted to Authorized Admin</h2>
-              <p style={{ color: "#64748b", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+              <h2 style={{ fontSize: 22, fontWeight: 900, color: "#172554", marginBottom: 8 }}>Restricted to Authorized Admin</h2>
+              <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
                 Selection email dispatch and platform governance are restricted to the default platform administrator.
               </p>
-              <button className="btn btn-primary" onClick={() => setActiveTab("jobs")} style={{ padding: "10px 24px", fontWeight: 800 }}>
+              <button className="btn btn-primary" onClick={() => setActiveTab("jobs")} style={{ padding: "10px 24px" }}>
                 Return to Live Opportunities
               </button>
             </div>
@@ -254,20 +289,24 @@ function MainApp() {
         )}
       </main>
 
-      {/* Auth Modal (when triggered from inside guest browsing) */}
-      {authConfig.isOpen && (
+      {/* Auth Modal (Pop-up when clicking login / apply from guest state) */}
+      {isAuthModalOpen && (
         <AuthPage
           isFullScreen={false}
-          defaultMode={authConfig.mode}
-          onClose={() => setAuthConfig({ isOpen: false, mode: "login" })}
+          defaultMode={authMode}
+          onClose={() => setIsAuthModalOpen(false)}
           onSuccess={() => {
             showToast("Authenticated successfully with 256-bit JWT session.");
-            setAuthConfig({ isOpen: false, mode: "login" });
+            setIsAuthModalOpen(false);
+          }}
+          onContinueAsGuest={() => {
+            setIsAuthModalOpen(false);
+            showToast("Browsing TalentAI as guest.");
           }}
         />
       )}
 
-      {/* Modals */}
+      {/* Application Submission Modal */}
       {applyingJob && (
         <ApplicationModal
           job={applyingJob}
@@ -280,6 +319,7 @@ function MainApp() {
         />
       )}
 
+      {/* Recruiter Post Job Modal */}
       {isPostJobOpen && (
         <PostJobModal
           onClose={() => setIsPostJobOpen(false)}
@@ -287,6 +327,7 @@ function MainApp() {
         />
       )}
 
+      {/* Schedule Interview Modal */}
       {schedulingApp && (
         <ScheduleInterviewModal
           application={schedulingApp}
@@ -294,38 +335,6 @@ function MainApp() {
           onSuccess={handleScheduleSuccess}
         />
       )}
-
-      {/* Footer */}
-      <footer style={{
-        borderTop: "1px solid #e2e8f0",
-        background: "#ffffff",
-        padding: "24px 0",
-        marginTop: "auto"
-      }}>
-        <div style={{
-          maxWidth: 1340,
-          margin: "0 auto",
-          padding: "0 24px",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          fontSize: 13,
-          color: "#5a6a85",
-          flexWrap: "wrap",
-          gap: 12
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <strong>Recruitment Portal</strong> · Jobs, Internships, Assessment Rounds & AI Resume ATS
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 4, color: "#10b981", fontWeight: 700 }}>
-              ✓ Verified Hiring Partners
-            </span>
-            <span>FastAPI Backend (:8000)</span>
-            <span>React Vite Frontend (:5173)</span>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 }

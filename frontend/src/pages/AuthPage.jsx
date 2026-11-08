@@ -261,12 +261,12 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
           </div>
           <div>
             <h2 style={{ fontSize: 21, fontWeight: 900, letterSpacing: -0.6 }}>
-              Recruitment<span style={{ color: "#38bdf8" }}>Portal</span> Access
+              Talent<span style={{ color: "#7657E8" }}>AI</span> Access
             </h2>
             <div style={{ fontSize: 11, color: "#94a3b8", display: "flex", alignItems: "center", gap: 6 }}>
-              <span>256-Bit Encrypted JWT Auth</span>
+              <span>Discover Talent. Build Futures.</span>
               <span>•</span>
-              <span style={{ color: "#4ade80" }}>Brute-Force Protected</span>
+              <span style={{ color: "#4ade80" }}>256-Bit JWT Protected</span>
             </div>
           </div>
         </div>
@@ -1067,10 +1067,10 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
             </div>
             <div>
               <span style={{ fontSize: 22, fontWeight: 900, letterSpacing: -0.6 }}>
-                Recruitment<span style={{ color: "#38bdf8" }}>Portal</span>
+                Talent<span style={{ color: "#7657E8" }}>AI</span>
               </span>
               <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                AI Jobs, Internships & Assessment Hub
+                Discover Talent. Build Futures.
               </div>
             </div>
           </div>
