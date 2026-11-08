@@ -187,6 +187,30 @@ export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, 
               </button>
             </div>
 
+            {/* Evaluator / Demo Admin Credentials Banner */}
+            <div
+              onClick={() => onOpenAuth && onOpenAuth("admin")}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                background: "rgba(15, 23, 42, 0.45)",
+                border: "1px solid rgba(167, 139, 250, 0.45)",
+                padding: "8px 16px",
+                borderRadius: 24,
+                fontSize: 12.5,
+                color: "#E2E8F0",
+                cursor: "pointer",
+                marginBottom: 24,
+                boxShadow: "0 4px 14px rgba(0,0,0,0.2)"
+              }}
+              title="Click to open Admin Portal with pre-filled credentials"
+            >
+              <span style={{ fontSize: 14 }}>🛡️</span>
+              <span><strong>Admin Portal:</strong> <code style={{ color: "#93C5FD", background: "rgba(0,0,0,0.35)", padding: "2px 6px", borderRadius: 4 }}>admin@recruitmentportal.com</code> / <code style={{ color: "#93C5FD", background: "rgba(0,0,0,0.35)", padding: "2px 6px", borderRadius: 4 }}>Admin@2026</code></span>
+              <span style={{ color: "#C084FC", fontWeight: 700, marginLeft: 4 }}>Click to Open Portal →</span>
+            </div>
+
             {/* Hero Interactive Search Bar */}
             <form
               onSubmit={handleSearchSubmit}

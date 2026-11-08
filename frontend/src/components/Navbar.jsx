@@ -66,9 +66,9 @@ export default function Navbar({
     }}>
       {/* Tier 1: Main Header & Brand Bar */}
       <div style={{
-        maxWidth: 1380,
+        maxWidth: 1320,
         margin: "0 auto",
-        padding: "12px 24px",
+        padding: "14px 24px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -328,6 +328,51 @@ export default function Navbar({
                 </div>
               </button>
 
+              {/* Direct Portal Switcher for Testing/Evaluators */}
+              {userRole === "candidate" ? (
+                <button
+                  onClick={() => setUserRole("admin")}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: "rgba(118, 87, 232, 0.28)",
+                    color: "#c4b5fd",
+                    border: "1px solid rgba(167, 139, 250, 0.5)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5
+                  }}
+                  title="Switch to Admin & Recruiter Management Portal"
+                >
+                  <span>🛡️</span>
+                  <span className="hide-on-mobile">Admin Portal</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setUserRole("candidate")}
+                  style={{
+                    padding: "6px 12px",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    background: "rgba(59, 130, 246, 0.2)",
+                    color: "#93c5fd",
+                    border: "1px solid rgba(147, 197, 253, 0.4)",
+                    borderRadius: 8,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5
+                  }}
+                  title="Switch to Candidate Portal"
+                >
+                  <span>🎓</span>
+                  <span className="hide-on-mobile">Candidate View</span>
+                </button>
+              )}
+
               <button
                 onClick={onLogout}
                 title="Log Out"
@@ -340,6 +385,26 @@ export default function Navbar({
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                onClick={() => onOpenAuth("admin")}
+                style={{
+                  padding: "7px 14px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  background: "rgba(118, 87, 232, 0.25)",
+                  color: "#c4b5fd",
+                  border: "1px solid rgba(167, 139, 250, 0.5)",
+                  borderRadius: 8,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6
+                }}
+                title="Log in to the Recruiter & Admin Management Portal"
+              >
+                <span>🛡️</span>
+                <span>Admin Portal</span>
+              </button>
               <button
                 onClick={() => onOpenAuth("login")}
                 className="btn btn-secondary"
@@ -359,7 +424,8 @@ export default function Navbar({
         </div>
       </div>
 
-      {/* Tier 2: Role-Specific Navigation Strip */}
+      {/* Tier 2: Role-Specific Navigation Strip (Only shown when user is authenticated) */}
+      {user && (
       <div style={{
         background: "rgba(15, 23, 42, 0.55)",
         borderTop: "1px solid rgba(255, 255, 255, 0.06)",
@@ -367,14 +433,14 @@ export default function Navbar({
         overflowX: "auto"
       }}>
         <div style={{
-          maxWidth: 1380,
+          maxWidth: 1320,
           margin: "0 auto",
           display: "flex",
           alignItems: "center",
           gap: 4
         }}>
           {/* Candidate Tabs */}
-          {(!user || userRole === "candidate") && (
+          {userRole === "candidate" && (
             <>
               <button
                 onClick={() => setActiveTab("candidate-dashboard")}
@@ -597,6 +663,7 @@ export default function Navbar({
           )}
         </div>
       </div>
+      )}
     </header>
   );
 }

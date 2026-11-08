@@ -387,3 +387,4 @@ export default function RecruitmentPipelineKanban({ onScheduleInterview, onEvalu
     </div>
   );
 }
+

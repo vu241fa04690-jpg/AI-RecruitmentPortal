@@ -101,9 +101,7 @@ export default function JobBoard({
         const rawList = await api.getJobs({});
         if (isMounted && rawList && rawList.length > 0) {
           setAllJobsRaw(rawList);
-          if (!selectedTopJob) {
-            setSelectedTopJob(rawList[0]);
-          }
+          // Keep selectedTopJob null by default so user sees full job stream immediately
         }
       } catch (err) {
         console.error("Failed to fetch jobs catalog:", err);
@@ -242,7 +240,7 @@ export default function JobBoard({
   };
 
   return (
-    <div style={{ maxWidth: 1380, margin: "0 auto", padding: "28px 24px 80px" }}>
+    <div style={{ maxWidth: 1320, margin: "0 auto", padding: "24px 24px 80px" }}>
       {/* Toast Alert */}
       {spotToast && (
         <div style={{
@@ -338,7 +336,7 @@ export default function JobBoard({
       </div>
 
       {/* 2-COLUMN LAYOUT: SIDEBAR + MAIN JOB STREAM */}
-      <div style={{ display: "grid", gridTemplateColumns: "270px 1fr", gap: 28, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "285px 1fr", gap: 28, alignItems: "start" }}>
 
         {/* LEFT FILTERS SIDEBAR */}
         <aside className="card" style={{ padding: "22px 20px", borderRadius: 18, position: "sticky", top: 110 }}>
@@ -543,6 +541,26 @@ export default function JobBoard({
                     style={{ padding: "9px 20px", fontSize: 13 }}
                   >
                     {appliedJobIds.has(selectedTopJob.id) ? "✓ Applied" : "⚡ Apply Now on the Spot"}
+                  </button>
+
+                  <button
+                    onClick={() => setSelectedTopJob(null)}
+                    style={{
+                      background: "rgba(0,0,0,0.06)",
+                      border: "none",
+                      width: 32,
+                      height: 32,
+                      borderRadius: "50%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      fontSize: 16,
+                      color: "#64748b"
+                    }}
+                    title="Close details preview"
+                  >
+                    ✕
                   </button>
                 </div>
               </div>

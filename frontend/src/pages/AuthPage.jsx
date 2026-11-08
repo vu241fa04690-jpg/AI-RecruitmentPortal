@@ -21,16 +21,16 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
   const { login, register, switchDemoRole } = useAuth();
   
   // View mode: "login" | "register" | "forgot"
-  const [mode, setMode] = useState(defaultMode);
+  const [mode, setMode] = useState(defaultMode === "admin" ? "login" : defaultMode);
   
   // Login input type: "email" | "phone"
   const [loginMethod, setLoginMethod] = useState("email");
-  const [loginPortalType, setLoginPortalType] = useState("candidate"); // "candidate" | "admin"
+  const [loginPortalType, setLoginPortalType] = useState(defaultMode === "admin" ? "admin" : "candidate"); // "candidate" | "admin"
 
   // Form states
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(defaultMode === "admin" ? "admin@recruitmentportal.com" : "");
   const [phone, setPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(defaultMode === "admin" ? "Admin@2026" : "");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -380,6 +380,118 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
         {/* 1. SIGN IN TAB */}
         {mode === "login" && (
           <div>
+            {/* Quick 1-Click Access for Evaluators & Testing */}
+            <div style={{
+              background: "linear-gradient(135deg, #f0f7ff 0%, #e0e7ff 100%)",
+              border: "1.5px solid #3b82f6",
+              borderRadius: 14,
+              padding: "14px",
+              marginBottom: 16
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                <span style={{ fontSize: 12, fontWeight: 900, color: "#1e3a8a", textTransform: "uppercase", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span>🔑</span> Project Evaluator Credentials
+                </span>
+                <span style={{ fontSize: 10.5, background: "#dbeafe", color: "#1e40af", padding: "2px 8px", borderRadius: 10, fontWeight: 800 }}>
+                  1-Click Auto Login
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {/* Admin / Recruiter Card */}
+                <div style={{
+                  background: "#ffffff",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  border: "1.5px solid #0066cc",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  boxShadow: "0 2px 8px rgba(0, 102, 204, 0.08)"
+                }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5, color: "#0f2b48" }}>
+                      <span>🛡️</span>
+                      <span>Admin Portal</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 4, lineHeight: 1.4 }}>
+                      <div><strong>Email:</strong> admin@recruitmentportal.com</div>
+                      <div><strong>Pass:</strong> Admin@2026</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("admin@recruitmentportal.com");
+                      setPassword("Admin@2026");
+                      setLoginPortalType("admin");
+                      handleQuickDemoLogin("admin");
+                    }}
+                    style={{
+                      marginTop: 8,
+                      background: "linear-gradient(135deg, #0066cc 0%, #1e3a8a 100%)",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "7px 10px",
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      width: "100%",
+                      boxShadow: "0 2px 6px rgba(0, 102, 204, 0.25)"
+                    }}
+                  >
+                    ⚡ Login as Admin
+                  </button>
+                </div>
+
+                {/* Candidate Card */}
+                <div style={{
+                  background: "#ffffff",
+                  borderRadius: 10,
+                  padding: "10px 12px",
+                  border: "1px solid #cbd5e1",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between"
+                }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, fontSize: 12.5, color: "#0f2b48" }}>
+                      <span>🎓</span>
+                      <span>Candidate Portal</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#475569", marginTop: 4, lineHeight: 1.4 }}>
+                      <div><strong>Email:</strong> sumii@example.com</div>
+                      <div><strong>Pass:</strong> Candidate@2026</div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmail("sumii@example.com");
+                      setPassword("Candidate@2026");
+                      setLoginPortalType("candidate");
+                      handleQuickDemoLogin("candidate");
+                    }}
+                    style={{
+                      marginTop: 8,
+                      background: "#334155",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: 6,
+                      padding: "7px 10px",
+                      fontSize: 11.5,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      width: "100%"
+                    }}
+                  >
+                    ⚡ Login as Candidate
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Separate Portals: Candidate Login vs Dedicated Admin/Recruiter Portal */}
             <div style={{
               display: "grid",

@@ -455,3 +455,4 @@ async def get_my_attempts(current_user: dict = Depends(get_current_user)):
     cursor = db["assessment_attempts"].find({"candidate_email": cand_email}).sort("submitted_at", -1)
     attempts = await cursor.to_list(100)
     return {"total": len(attempts), "attempts": attempts}
+
