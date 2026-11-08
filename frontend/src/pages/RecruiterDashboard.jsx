@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { UsersIcon, BriefcaseIcon, CalendarIcon, SparklesIcon, PlusIcon, FileTextIcon, MailIcon } from "../components/Icons";
 import { api } from "../services/api";
 import SelectionEmailModal from "../components/SelectionEmailModal";
+import RecruitmentPipelineKanban from "../components/RecruitmentPipelineKanban";
+import AssignmentManager from "../components/AssignmentManager";
+import InterviewEvaluationModal from "../components/InterviewEvaluationModal";
 
 export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview }) {
   const [stats, setStats] = useState({
@@ -31,6 +34,8 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const [isCompareModalOpen, setIsCompareModalOpen] = useState(false);
   const [inspectingCandidate, setInspectingCandidate] = useState(null);
+  const [activeRecruiterTab, setActiveRecruiterTab] = useState("candidates"); // 'candidates' | 'pipeline' | 'assignments' | 'evaluations'
+  const [evaluatingInterview, setEvaluatingInterview] = useState(null);
 
   useEffect(() => {
     loadData();
@@ -298,8 +303,56 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
         </div>
       )}
 
-      {/* Applicant Ranking Table */}
-      <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+      {/* Recruiter Advanced Modules Navigation Strip */}
+      <div style={{
+        display: "flex",
+        gap: "10px",
+        background: "#ffffff",
+        padding: "8px",
+        borderRadius: "14px",
+        border: "1px solid #e2e8f0",
+        marginBottom: "24px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+        overflowX: "auto"
+      }}>
+        {[
+          { id: "candidates", label: "Candidate Rankings & Applications", icon: "👥" },
+          { id: "pipeline", label: "13-Stage Recruitment Pipeline", icon: "📊" },
+          { id: "assignments", label: "Assignment & Project Management", icon: "📁" },
+          { id: "evaluations", label: "Interview Evaluations & Rubrics", icon: "🏆" }
+        ].map((tab) => {
+          const isSelected = activeRecruiterTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveRecruiterTab(tab.id)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "10px 18px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                fontWeight: isSelected ? "800" : "600",
+                color: isSelected ? "#ffffff" : "#475569",
+                background: isSelected ? "linear-gradient(135deg, #3157D5, #7657E8)" : "transparent",
+                border: "none",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                transition: "all 0.15s ease",
+                boxShadow: isSelected ? "0 4px 12px rgba(49, 87, 213, 0.3)" : "none"
+              }}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* VIEW 1: CANDIDATE RANKINGS & APPLICANTS */}
+      {activeRecruiterTab === "candidates" && (
+        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h2 style={{ fontSize: 18, fontWeight: 700, color: "#0f172a" }}>
@@ -464,6 +517,20 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
                       >
                         <CalendarIcon size={14} /> Schedule Interview
                       </button>
+
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setEvaluatingInterview({
+                          id: app.id,
+                          candidate_name: app.candidate_name,
+                          job_title: app.job_title,
+                          round: "Technical Interview Round"
+                        })}
+                        style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, color: "#3157D5" }}
+                        title="Evaluate candidate across 6 standardized criteria"
+                      >
+                        🏆 Evaluate
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -473,6 +540,75 @@ export default function RecruiterDashboard({ onOpenPostJob, onScheduleInterview 
           </table>
         </div>
       </div>
+      )}
+
+      {/* VIEW 2: VISUAL 13-STAGE RECRUITMENT PIPELINE */}
+      {activeRecruiterTab === "pipeline" && (
+        <RecruitmentPipelineKanban
+          onScheduleInterview={onScheduleInterview}
+          onEvaluateCandidate={(cand) => setEvaluatingInterview({
+            id: cand.id,
+            candidate_name: cand.candidate_name,
+            job_title: cand.job_title,
+            round: "Technical Screening"
+          })}
+        />
+      )}
+
+      {/* VIEW 3: RECRUITER ASSIGNMENT & PROJECT MANAGEMENT */}
+      {activeRecruiterTab === "assignments" && (
+        <AssignmentManager userRole="recruiter" />
+      )}
+
+      {/* VIEW 4: INTERVIEW EVALUATIONS HUB */}
+      {activeRecruiterTab === "evaluations" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          <div className="card" style={{ padding: "24px", background: "linear-gradient(135deg, #172554, #3157D5)", color: "#fff" }}>
+            <h2 style={{ fontSize: "20px", fontWeight: "800", margin: "0 0 6px" }}>Candidate Evaluation & Rubrics Hub</h2>
+            <p style={{ margin: 0, fontSize: "13px", color: "rgba(255,255,255,0.8)" }}>
+              Standardized scoring across Technical Knowledge, Communication, Problem-Solving, Practical Experience, Project Explanation, and Role Suitability.
+            </p>
+          </div>
+
+          <div className="card" style={{ padding: "24px" }}>
+            <h3 style={{ fontSize: "16px", fontWeight: "700", marginBottom: "16px" }}>Evaluate Shortlisted Candidates</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+              {applications.slice(0, 5).map((app) => (
+                <div key={app.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", border: "1px solid #e2e8f0", borderRadius: "10px" }}>
+                  <div>
+                    <h4 style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: "700" }}>{app.candidate_name}</h4>
+                    <p style={{ margin: 0, fontSize: "12px", color: "#64748b" }}>{app.job_title} • AI Match: <strong>{app.match_score}%</strong> • Status: {app.status}</p>
+                  </div>
+                  <button
+                    onClick={() => setEvaluatingInterview({
+                      id: app.id,
+                      candidate_name: app.candidate_name,
+                      job_title: app.job_title,
+                      round: "Comprehensive Technical Round"
+                    })}
+                    className="btn btn-primary"
+                    style={{ padding: "8px 18px", fontSize: "12px" }}
+                  >
+                    Open Evaluation Rubric ➔
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interview Evaluation Modal */}
+      {evaluatingInterview && (
+        <InterviewEvaluationModal
+          interview={evaluatingInterview}
+          onClose={() => setEvaluatingInterview(null)}
+          onEvaluated={() => {
+            setEvaluatingInterview(null);
+            loadData();
+          }}
+        />
+      )}
 
       {/* V2 Candidate Side-by-Side Comparison Modal */}
       {isCompareModalOpen && (

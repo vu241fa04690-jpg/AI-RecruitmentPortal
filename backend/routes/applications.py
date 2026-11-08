@@ -224,3 +224,58 @@ async def update_application_status(
 
     updated = await db["applications"].find_one({"_id": app_id})
     return _format_app(updated)
+
+
+@router.post("/{app_id}/withdraw")
+async def withdraw_application(
+    app_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Candidate withdraws their active job application.
+    """
+    db = get_db()
+    existing = await db["applications"].find_one({"_id": app_id})
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Application not found")
+
+    user_email = (current_user.get("email") or "").lower().strip()
+    user_role = current_user.get("role", "candidate")
+
+    if user_role == "candidate" and existing.get("candidate_email", "").lower() != user_email:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You can only withdraw your own applications.")
+
+    await db["applications"].update_one(
+        {"_id": app_id},
+        {"$set": {"status": "withdrawn"}}
+    )
+
+    now = datetime.now(timezone.utc).isoformat()
+    # Record stage change
+    stage_doc = {
+        "_id": f"stg-{uuid.uuid4().hex[:6]}",
+        "application_id": app_id,
+        "candidate_email": existing.get("candidate_email"),
+        "from_stage": existing.get("status"),
+        "to_stage": "withdrawn",
+        "changed_by": user_email or "Candidate",
+        "notes": "Application withdrawn by candidate.",
+        "timestamp": now
+    }
+    await db["recruitment_stage_history"].insert_one(stage_doc)
+
+    return {"message": "Application successfully withdrawn.", "application_id": app_id, "status": "withdrawn"}
+
+
+@router.get("/{app_id}/timeline")
+async def get_application_timeline(
+    app_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Returns full timeline of events, assessments, and interview stages for an application.
+    """
+    db = get_db()
+    cursor = db["recruitment_stage_history"].find({"application_id": app_id}).sort("timestamp", 1)
+    timeline = await cursor.to_list(100)
+    return {"application_id": app_id, "events": timeline}

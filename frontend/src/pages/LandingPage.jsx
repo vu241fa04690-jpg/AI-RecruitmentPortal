@@ -832,3 +832,4 @@ export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, 
     </div>
   );
 }
+

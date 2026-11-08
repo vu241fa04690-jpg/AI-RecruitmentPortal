@@ -1,4 +1,4 @@
-const RAW_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000/api";
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8001/api";
 const API_BASE_URL = RAW_BASE.endsWith("/api") ? RAW_BASE : `${RAW_BASE.replace(/\/$/, "")}/api`;
 
 let authToken = typeof localStorage !== "undefined" ? localStorage.getItem("recruit_ai_token") : null;
@@ -1803,5 +1803,278 @@ export const api = {
     return { total_attempts: 0, average_score: 0, history: [] };
   },
 
-  getExportRecruitmentCSVUrl: () => `${API_BASE_URL}/analytics/export/csv`
+  getExportRecruitmentCSVUrl: () => `${API_BASE_URL}/analytics/export/csv`,
+
+  // Module 1: Advanced Job Application Enhancements
+  withdrawApplication: async (appId) => {
+    const res = await fetch(`${API_BASE_URL}/applications/${appId}/withdraw`, {
+      method: "POST",
+      headers: getHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to withdraw application");
+    }
+    return await res.json();
+  },
+
+  getApplicationTimeline: async (appId) => {
+    const res = await fetch(`${API_BASE_URL}/applications/${appId}/timeline`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { application_id: appId, events: [] };
+  },
+
+  // Module 2: Assignment Management
+  createAssignment: async (assignmentData) => {
+    const res = await fetch(`${API_BASE_URL}/assignments`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(assignmentData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to create assignment");
+    }
+    return await res.json();
+  },
+
+  listAssignments: async (jobId) => {
+    const url = jobId ? `${API_BASE_URL}/assignments?job_id=${encodeURIComponent(jobId)}` : `${API_BASE_URL}/assignments`;
+    const res = await fetch(url, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { total: 0, assignments: [] };
+  },
+
+  getAssignment: async (assignId) => {
+    const res = await fetch(`${API_BASE_URL}/assignments/${assignId}`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    throw new Error("Assignment not found");
+  },
+
+  deleteAssignment: async (assignId) => {
+    const res = await fetch(`${API_BASE_URL}/assignments/${assignId}`, {
+      method: "DELETE",
+      headers: getHeaders()
+    });
+    return await res.json();
+  },
+
+  submitAssignment: async (assignId, submissionData) => {
+    const res = await fetch(`${API_BASE_URL}/assignments/${assignId}/submit`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(submissionData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to submit assignment");
+    }
+    return await res.json();
+  },
+
+  listAssignmentSubmissions: async (assignId) => {
+    const res = await fetch(`${API_BASE_URL}/assignments/${assignId}/submissions`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { total: 0, submissions: [] };
+  },
+
+  evaluateAssignmentSubmission: async (subId, evalData) => {
+    const res = await fetch(`${API_BASE_URL}/assignments/submissions/${subId}/evaluate`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(evalData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to evaluate submission");
+    }
+    return await res.json();
+  },
+
+  // Module 3: Online Assessment System
+  listAssessments: async (category) => {
+    const url = category ? `${API_BASE_URL}/assessments?category=${category}` : `${API_BASE_URL}/assessments`;
+    const res = await fetch(url, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { total: 0, assessments: [] };
+  },
+
+  getAssessmentDetails: async (asmtId) => {
+    const res = await fetch(`${API_BASE_URL}/assessments/${asmtId}`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    throw new Error("Assessment not found");
+  },
+
+  startAssessment: async (asmtId) => {
+    const res = await fetch(`${API_BASE_URL}/assessments/${asmtId}/start`, {
+      method: "POST",
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error("Could not start assessment session");
+    return await res.json();
+  },
+
+  submitAssessment: async (asmtId, payload) => {
+    const res = await fetch(`${API_BASE_URL}/assessments/${asmtId}/submit`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to submit assessment");
+    }
+    return await res.json();
+  },
+
+  getMyAssessmentAttempts: async () => {
+    const res = await fetch(`${API_BASE_URL}/assessments/my/attempts`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { total: 0, attempts: [] };
+  },
+
+  // Module 4 & 9: Recruitment Pipeline & Multi-Round Management
+  getPipelineSummary: async (jobId) => {
+    const url = jobId ? `${API_BASE_URL}/pipeline/summary?job_id=${encodeURIComponent(jobId)}` : `${API_BASE_URL}/pipeline/summary`;
+    const res = await fetch(url, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { total_candidates: 0, stages: [] };
+  },
+
+  moveCandidateStage: async (appId, targetStage, notes = "") => {
+    const res = await fetch(`${API_BASE_URL}/pipeline/move-stage`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ application_id: appId, target_stage: targetStage, notes })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to move candidate stage");
+    }
+    return await res.json();
+  },
+
+  getCandidateStageHistory: async (appId) => {
+    const res = await fetch(`${API_BASE_URL}/pipeline/history/${appId}`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { application_id: appId, timeline: [] };
+  },
+
+  getJobRounds: async (jobId) => {
+    const res = await fetch(`${API_BASE_URL}/pipeline/rounds/${jobId}`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { job_id: jobId, rounds: [] };
+  },
+
+  saveJobRounds: async (jobId, rounds) => {
+    const res = await fetch(`${API_BASE_URL}/pipeline/rounds/${jobId}`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(rounds)
+    });
+    return await res.json();
+  },
+
+  // Module 5, 6, 7: Face-to-Face & Video Interviews & Standardized Evaluations
+  confirmInterviewAttendance: async (intId) => {
+    const res = await fetch(`${API_BASE_URL}/interviews/${intId}/confirm`, {
+      method: "POST",
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error("Failed to confirm attendance");
+    return await res.json();
+  },
+
+  requestInterviewReschedule: async (intId, preferredDate, reason) => {
+    const res = await fetch(`${API_BASE_URL}/interviews/${intId}/reschedule-request`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ preferred_date: preferredDate, reason })
+    });
+    if (!res.ok) throw new Error("Failed to submit reschedule request");
+    return await res.json();
+  },
+
+  evaluateInterview: async (intId, evaluationData) => {
+    const res = await fetch(`${API_BASE_URL}/interviews/${intId}/evaluate`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify(evaluationData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "Failed to record evaluation");
+    }
+    return await res.json();
+  },
+
+  getInterviewEvaluation: async (intId) => {
+    const res = await fetch(`${API_BASE_URL}/interviews/${intId}/evaluation`, { headers: getHeaders() });
+    if (res.ok) return await res.json();
+    return { interview_id: intId, evaluation: null };
+  },
+
+  // Real WebRTC Video Signaling
+  postVideoSignal: async (roomId, signalPayload) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/interviews/video/signal/${roomId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(signalPayload)
+      });
+      return await res.json();
+    } catch {
+      return { status: "offline" };
+    }
+  },
+
+  getVideoSignals: async (roomId, since) => {
+    try {
+      const url = since ? `${API_BASE_URL}/interviews/video/signal/${roomId}?since=${encodeURIComponent(since)}` : `${API_BASE_URL}/interviews/video/signal/${roomId}`;
+      const res = await fetch(url);
+      if (res.ok) return await res.json();
+    } catch {}
+    return { room_id: roomId, signals: [] };
+  },
+
+  // AI Autonomous Agent Copilot
+  chatWithAgent: async (message, conversationHistory = [], userContext = {}) => {
+    const res = await fetch(`${API_BASE_URL}/agent/chat`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        message,
+        conversation_history: conversationHistory,
+        user_context: userContext
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || "AI Agent service currently unavailable");
+    }
+    return await res.json();
+  },
+
+  generateAgentCoverLetter: async (jobTitle, company, candidateName, skills) => {
+    const res = await fetch(`${API_BASE_URL}/agent/cover-letter`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({
+        candidate_name: candidateName,
+        job_title: jobTitle,
+        company,
+        skills
+      })
+    });
+    return await res.json();
+  },
+
+  optimizeResumeBullet: async (rawBullet, targetRole = "Software Engineer") => {
+    const res = await fetch(`${API_BASE_URL}/agent/optimize-bullet`, {
+      method: "POST",
+      headers: getHeaders(),
+      body: JSON.stringify({ raw_bullet: rawBullet, target_role: targetRole })
+    });
+    return await res.json();
+  }
 };

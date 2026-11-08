@@ -194,6 +194,17 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
     return user
 
 
+async def get_optional_current_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
+) -> Optional[Dict[str, Any]]:
+    if not credentials:
+        return None
+    try:
+        return await get_current_user(credentials)
+    except Exception:
+        return None
+
+
 def require_roles(allowed_roles: List[str]):
     async def role_checker(current_user: Dict[str, Any] = Depends(get_current_user)):
         user_role = current_user.get("role", "candidate")
