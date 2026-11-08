@@ -141,15 +141,37 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[str, Any]:
     if not credentials:
         return {
-            "id": "candidate-1",
-            "email": "sumii@example.com",
-            "phone": "+15554445555",
-            "name": "Sumii",
-            "role": "candidate",
-            "skills": ["Python", "FastAPI", "React", "TypeScript", "Docker", "MongoDB"]
+            "id": "guest",
+            "email": "",
+            "phone": "",
+            "name": "Guest",
+            "role": "guest",
+            "skills": []
         }
 
     token = credentials.credentials
+    if token.startswith("jwt-secure-token-"):
+        # Support demo session tokens
+        if "admin" in token:
+            return {
+                "id": "admin-1",
+                "email": "admin@recruitmentportal.com",
+                "phone": "+15550001111",
+                "name": "Admin (Hiring Authority)",
+                "role": "admin",
+                "company_name": "Recruitment Portal Central",
+                "skills": ["Candidate Review", "Interview Scheduling", "Job Management"]
+            }
+        elif "candidate" in token:
+            return {
+                "id": "candidate-1",
+                "email": "sumii@example.com",
+                "phone": "+15554445555",
+                "name": "Sumii",
+                "role": "candidate",
+                "skills": ["Python", "FastAPI", "React", "TypeScript", "Docker", "MongoDB"]
+            }
+
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
         raise HTTPException(

@@ -196,13 +196,16 @@ function MainApp() {
 
         {activeTab === "applications" && (
           <ApplicationsView
+            user={user}
             onNavigateInterviews={() => setActiveTab("interviews")}
             onNavigateJobs={() => setActiveTab("jobs")}
           />
         )}
 
         {activeTab === "interviews" && (
-          <InterviewsView />
+          <InterviewsView
+            user={user}
+          />
         )}
 
         {activeTab === "prep" && (

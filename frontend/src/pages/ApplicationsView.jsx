@@ -19,28 +19,57 @@ const STAGES = [
   { id: "accepted", label: "Offer Extended" }
 ];
 
-export default function ApplicationsView({ onNavigateInterviews, onNavigateJobs }) {
+export default function ApplicationsView({ user, onNavigateInterviews, onNavigateJobs }) {
+  const userEmail = (user?.email || "").toLowerCase().trim();
+  const isCandidate = user?.role === "candidate" || !user?.role;
+
   const [applications, setApplications] = useState(() => {
-    return (INITIAL_MOCK_APPLICATIONS && INITIAL_MOCK_APPLICATIONS.length > 0) ? INITIAL_MOCK_APPLICATIONS : [];
+    if (!user) return [];
+    if (userEmail === "sumii@example.com") {
+      return (INITIAL_MOCK_APPLICATIONS || []).filter(a => a.candidate_email?.toLowerCase() === "sumii@example.com");
+    }
+    return [];
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [filterStage, setFilterStage] = useState("all");
 
   useEffect(() => {
     let mounted = true;
     const fetchApps = async () => {
+      setLoading(true);
       try {
-        const data = await api.getApplications();
-        if (mounted && data && data.length > 0) {
-          setApplications(data);
+        const params = {};
+        if (isCandidate && userEmail) {
+          params.candidate_email = userEmail;
+          if (user?.id) params.candidate_id = user.id;
+        }
+        const data = await api.getApplications(params);
+        if (mounted) {
+          if (Array.isArray(data)) {
+            const userSpecificApps = isCandidate && userEmail
+              ? data.filter(a => (a.candidate_email && a.candidate_email.toLowerCase() === userEmail) || (user?.id && a.candidate_id === user.id))
+              : data;
+            setApplications(userSpecificApps);
+          } else {
+            setApplications([]);
+          }
         }
       } catch (err) {
-        console.warn("Failed to sync latest applications from server, using local cache:", err);
+        console.warn("Failed to sync latest applications from server, using fallback:", err);
+        if (mounted) {
+          if (userEmail === "sumii@example.com") {
+            setApplications((INITIAL_MOCK_APPLICATIONS || []).filter(a => a.candidate_email?.toLowerCase() === "sumii@example.com"));
+          } else {
+            setApplications([]);
+          }
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
     fetchApps();
     return () => { mounted = false; };
-  }, []);
+  }, [userEmail, isCandidate, user?.id]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -96,10 +125,14 @@ export default function ApplicationsView({ onNavigateInterviews, onNavigateJobs 
             📋 REAL-TIME APPLICATION & HIRING TRACKER
           </div>
           <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: -0.8, marginBottom: 8, lineHeight: 1.2 }}>
-            My Candidate Applications & Assessment Progression
+            {user?.name ? `${user.name}'s Applications` : "My Candidate Applications"} & Assessment Progression
           </h1>
           <p style={{ color: "#e0f2fe", fontSize: 15, maxWidth: 740, lineHeight: 1.55 }}>
-            Track real-time candidate pipeline stages, AI qualification match scores, multi-round technical assessment invites, and direct offer updates.
+            {user?.email ? (
+              <span>Account: <strong style={{ color: "#ffffff" }}>{user.email}</strong> · Showing applications submitted specifically under this account.</span>
+            ) : (
+              <span>Track real-time candidate pipeline stages, AI qualification match scores, multi-round technical assessment invites, and direct offer updates.</span>
+            )}
           </p>
 
           {/* Quick Stats Strip */}
@@ -194,14 +227,16 @@ export default function ApplicationsView({ onNavigateInterviews, onNavigateJobs 
         <div className="card" style={{ textAlign: "center", padding: "64px 24px" }}>
           <FileTextIcon size={44} color="#94a3b8" style={{ margin: "0 auto 16px" }} />
           <h3 style={{ fontSize: 19, fontWeight: 800, color: "#1c4980", marginBottom: 8 }}>
-            No Applications Found for this Filter
+            {applications.length === 0 ? "No Applications Submitted Yet" : "No Applications Found for this Filter"}
           </h3>
-          <p style={{ color: "#64748b", fontSize: 14, maxWidth: 460, margin: "0 auto 20px" }}>
-            Explore open jobs and apply with 1-click on the spot to start tracking your multi-round hiring progress!
+          <p style={{ color: "#64748b", fontSize: 14, maxWidth: 500, margin: "0 auto 20px" }}>
+            {applications.length === 0
+              ? `You haven't submitted any job applications under ${user?.email || "this account"} yet. Explore open roles on the Job Board and click "⚡ Apply Now on the Spot" to submit your application!`
+              : "Try switching the filter to 'All Stages' to see your complete hiring pipeline."}
           </p>
           {onNavigateJobs && (
             <button className="btn btn-primary" onClick={onNavigateJobs} style={{ padding: "10px 24px", fontWeight: 800 }}>
-              Browse Live Opportunities
+              Browse Open Opportunities & Apply
             </button>
           )}
         </div>

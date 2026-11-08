@@ -28,13 +28,44 @@ export default function JobBoard({
 
   // Top Details View & On-the-spot Apply State
   const [selectedTopJob, setSelectedTopJob] = useState(() => (INITIAL_MOCK_JOBS && INITIAL_MOCK_JOBS.length > 0 ? INITIAL_MOCK_JOBS[0] : null));
-  const [appliedJobIds, setAppliedJobIds] = useState(new Set(["opp-1"]));
+  const [appliedJobIds, setAppliedJobIds] = useState(() => {
+    if (user?.email?.toLowerCase() === "sumii@example.com") {
+      return new Set(["opp-1"]);
+    }
+    return new Set();
+  });
   const [spotApplyingId, setSpotApplyingId] = useState(null);
   const [spotToast, setSpotToast] = useState(null);
 
   useEffect(() => {
     setCategoryFilter(initialCategory);
   }, [initialCategory]);
+
+  // Sync applied jobs specific to this candidate account
+  useEffect(() => {
+    let isMounted = true;
+    const syncUserApplications = async () => {
+      if (!user?.email) {
+        setAppliedJobIds(new Set());
+        return;
+      }
+      try {
+        const apps = await api.getApplications({ candidate_email: user.email.toLowerCase(), candidate_id: user.id });
+        if (isMounted && Array.isArray(apps)) {
+          const userAppliedIds = new Set(
+            apps
+              .filter(a => (a.candidate_email && a.candidate_email.toLowerCase() === user.email.toLowerCase()) || (user.id && a.candidate_id === user.id))
+              .map(a => a.job_id)
+          );
+          setAppliedJobIds(userAppliedIds);
+        }
+      } catch (err) {
+        console.warn("Could not sync candidate applications:", err);
+      }
+    };
+    syncUserApplications();
+    return () => { isMounted = false; };
+  }, [user?.email, user?.id]);
 
   // Load all jobs once on mount with safety
   useEffect(() => {
@@ -129,8 +160,9 @@ export default function JobBoard({
     try {
       const res = await api.submitApplication({
         job_id: job.id,
+        candidate_id: user?.id,
         candidate_name: user?.name || "Candidate",
-        candidate_email: user?.email || "candidate@example.com",
+        candidate_email: (user?.email || "").toLowerCase().trim(),
         candidate_skills: user?.skills || job.skills || ["Python", "FastAPI", "React"],
         cover_letter: "Applied directly on the spot via Recruitment Portal AI Hub.",
         resume_name: "Candidate_Resume.pdf"

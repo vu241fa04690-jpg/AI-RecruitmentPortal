@@ -11,9 +11,18 @@ import {
 } from "../components/Icons";
 import { api, INITIAL_MOCK_INTERVIEWS } from "../services/api";
 
-export default function InterviewsView() {
-  const [interviews, setInterviews] = useState(() => INITIAL_MOCK_INTERVIEWS || []);
-  const [loading, setLoading] = useState(false);
+export default function InterviewsView({ user }) {
+  const userEmail = (user?.email || "").toLowerCase().trim();
+  const isCandidate = user?.role === "candidate" || !user?.role;
+
+  const [interviews, setInterviews] = useState(() => {
+    if (!user) return [];
+    if (userEmail === "sumii@example.com") {
+      return (INITIAL_MOCK_INTERVIEWS || []).filter(i => i.candidate_email?.toLowerCase() === "sumii@example.com");
+    }
+    return [];
+  });
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("all");
 
   // Assessment Sandbox Modal State
@@ -40,24 +49,45 @@ function findTargetIndices(nums, target) {
   const [activeVideoRoom, setActiveVideoRoom] = useState(null);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
-  const [whiteboardText, setWhiteboardText] = useState("// Collaborative Notes & Architectural Diagram\nCandidate: Sumii\nFocus: FastAPI Concurrency, DB Connection Pool, Redis TTL");
+  const [whiteboardText, setWhiteboardText] = useState(`// Collaborative Notes & Architectural Diagram\nCandidate: ${user?.name || "Candidate"}\nFocus: FastAPI Concurrency, DB Connection Pool, Redis TTL`);
   const [videoSessionCompleted, setVideoSessionCompleted] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     const loadInterviews = async () => {
+      setLoading(true);
       try {
-        const data = await api.getInterviews();
-        if (mounted && data && data.length > 0) {
-          setInterviews(data);
+        const params = {};
+        if (isCandidate && userEmail) {
+          params.candidate_email = userEmail;
+        }
+        const data = await api.getInterviews(params);
+        if (mounted) {
+          if (Array.isArray(data)) {
+            const userSpecific = isCandidate && userEmail
+              ? data.filter(i => i.candidate_email && i.candidate_email.toLowerCase() === userEmail)
+              : data;
+            setInterviews(userSpecific);
+          } else {
+            setInterviews([]);
+          }
         }
       } catch (err) {
         console.error("Failed to load interviews:", err);
+        if (mounted) {
+          if (userEmail === "sumii@example.com") {
+            setInterviews((INITIAL_MOCK_INTERVIEWS || []).filter(i => i.candidate_email?.toLowerCase() === "sumii@example.com"));
+          } else {
+            setInterviews([]);
+          }
+        }
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
     loadInterviews();
     return () => { mounted = false; };
-  }, []);
+  }, [userEmail, isCandidate]);
 
   // Timer countdown for active assessment
   useEffect(() => {

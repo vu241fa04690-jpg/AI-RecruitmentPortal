@@ -27,16 +27,16 @@ export default function ApplicationModal({ job, onClose, onSuccess, onViewApplic
 
   // Candidate Information Form State
   const [formData, setFormData] = useState({
-    fullName: user?.name || "Sumii",
-    email: user?.email || "sumii@example.com",
-    phone: "+91 98765 43210",
+    fullName: user?.name || "Candidate",
+    email: user?.email || "",
+    phone: user?.phone || "+91 98765 43210",
     city: "Bengaluru, India",
     college: "National Institute of Technology (NIT)",
     graduationYear: "2026",
     degree: "B.Tech in Computer Science & Engineering",
     experienceLevel: "Fresher / Final Year Student",
     skills: initialSkills,
-    portfolioUrl: "https://github.com/sumii",
+    portfolioUrl: user?.email ? `https://github.com/${user.email.split("@")[0]}` : "https://github.com/candidate",
     coverNote: `I am passionate about ${job?.title || "this opportunity"} at ${job?.company || "your team"}. I have strong practical foundations in ${job?.skills ? job.skills.slice(0, 3).join(", ") : "software architecture"} and am eager to contribute to high-impact projects.`,
     resumeName: initialResumeName,
     atsScore: initialAtsScore
@@ -56,10 +56,13 @@ export default function ApplicationModal({ job, onClose, onSuccess, onViewApplic
         .map(s => s.trim())
         .filter(Boolean);
 
+      const targetEmail = (formData.email || user?.email || "").toLowerCase().trim();
+
       const res = await api.submitApplication({
         job_id: job.id,
-        candidate_name: formData.fullName,
-        candidate_email: formData.email,
+        candidate_id: user?.id,
+        candidate_name: formData.fullName || user?.name || "Candidate",
+        candidate_email: targetEmail,
         candidate_phone: formData.phone,
         candidate_college: formData.college,
         candidate_graduation_year: formData.graduationYear,

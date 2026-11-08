@@ -29,14 +29,28 @@ def _format_interview(doc: dict) -> InterviewResponse:
 @router.get("", response_model=List[InterviewResponse])
 async def list_interviews(
     candidate_email: Optional[str] = Query(None),
-    status_filter: Optional[str] = Query(None)
+    status_filter: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
 ):
     db = get_db()
     query = {}
-    if candidate_email:
-        query["candidate_email"] = candidate_email
     if status_filter:
         query["status"] = status_filter
+
+    user_role = current_user.get("role", "candidate")
+    user_email = (current_user.get("email") or "").lower().strip()
+    target_email = (candidate_email or "").lower().strip()
+
+    if user_role in ["candidate", "guest"]:
+        effective_email = target_email or user_email
+        if effective_email:
+            query["candidate_email"] = effective_email
+        else:
+            return []
+    else:
+        # Recruiters and Admins can view all scheduled interviews or filter
+        if target_email:
+            query["candidate_email"] = target_email
 
     cursor = db["interviews"].find(query)
     interviews = await cursor.to_list(length=100)

@@ -1199,11 +1199,27 @@ export const api = {
 
   getApplications: async (params = {}) => {
     try {
-      const query = new URLSearchParams(params).toString();
-      const res = await fetchWithTimeout(`${API_BASE_URL}/applications?${query}`, { headers: getHeaders() }, 900);
-      if (res && res.ok) return await res.json();
+      const cleanParams = {};
+      Object.keys(params).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== "") {
+          cleanParams[k] = params[k];
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
+      const res = await fetchWithTimeout(`${API_BASE_URL}/applications${query ? `?${query}` : ""}`, { headers: getHeaders() }, 1800);
+      if (res && res.ok) {
+        return await res.json();
+      }
     } catch {}
-    return [...mockApplications];
+
+    // Offline / Demo fallback: isolate strictly by candidate
+    let list = [...mockApplications];
+    if (params.candidate_email) {
+      list = list.filter(a => a.candidate_email && a.candidate_email.toLowerCase() === params.candidate_email.toLowerCase());
+    } else if (params.candidate_id) {
+      list = list.filter(a => a.candidate_id === params.candidate_id);
+    }
+    return list;
   },
 
   submitApplication: async (appData) => {
@@ -1212,8 +1228,12 @@ export const api = {
         method: "POST",
         headers: getHeaders(),
         body: JSON.stringify(appData)
-      }, 900);
-      if (res && res.ok) return await res.json();
+      }, 2500);
+      if (res && res.ok) {
+        const created = await res.json();
+        mockApplications.unshift(created);
+        return created;
+      }
     } catch {}
 
     const job = mockJobs.find(j => j.id === appData.job_id) || mockJobs[0];
@@ -1231,8 +1251,9 @@ export const api = {
       job_title: job.title,
       company: job.company,
       category: job.category || "internship",
-      candidate_name: appData.candidate_name,
-      candidate_email: appData.candidate_email,
+      candidate_id: appData.candidate_id || `cand-${Date.now().toString().slice(-4)}`,
+      candidate_name: appData.candidate_name || "Candidate",
+      candidate_email: appData.candidate_email || "candidate@example.com",
       candidate_phone: appData.candidate_phone || "+15554445555",
       candidate_skills: candidateSkills,
       cover_letter: appData.cover_letter || "",
@@ -1289,12 +1310,24 @@ export const api = {
     return app;
   },
 
-  getInterviews: async () => {
+  getInterviews: async (params = {}) => {
     try {
-      const res = await fetchWithTimeout(`${API_BASE_URL}/interviews`, { headers: getHeaders() }, 900);
+      const cleanParams = {};
+      Object.keys(params).forEach(k => {
+        if (params[k] !== undefined && params[k] !== null && params[k] !== "") {
+          cleanParams[k] = params[k];
+        }
+      });
+      const query = new URLSearchParams(cleanParams).toString();
+      const res = await fetchWithTimeout(`${API_BASE_URL}/interviews${query ? `?${query}` : ""}`, { headers: getHeaders() }, 1800);
       if (res && res.ok) return await res.json();
     } catch {}
-    return [...mockInterviews];
+
+    let list = [...mockInterviews];
+    if (params.candidate_email) {
+      list = list.filter(i => i.candidate_email && i.candidate_email.toLowerCase() === params.candidate_email.toLowerCase());
+    }
+    return list;
   },
 
   scheduleInterview: async (intData) => {

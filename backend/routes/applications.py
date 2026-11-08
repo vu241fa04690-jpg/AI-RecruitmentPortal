@@ -33,20 +33,67 @@ def _format_app(doc: dict) -> ApplicationResponse:
 async def list_applications(
     job_id: Optional[str] = Query(None),
     candidate_id: Optional[str] = Query(None),
-    status_filter: Optional[str] = Query(None)
+    candidate_email: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None),
+    current_user: dict = Depends(get_current_user)
 ):
     db = get_db()
     query = {}
     if job_id:
         query["job_id"] = job_id
-    if candidate_id:
-        query["candidate_id"] = candidate_id
     if status_filter:
         query["status"] = status_filter
 
+    user_role = current_user.get("role", "candidate")
+    user_email = (current_user.get("email") or "").lower().strip()
+    user_id = current_user.get("id")
+
+    target_email = (candidate_email or "").lower().strip()
+    target_id = candidate_id
+
+    # Separate applications strictly per user account
+    if user_role == "candidate":
+        # Candidates can ONLY view their own submitted applications
+        effective_email = target_email or user_email
+        effective_id = target_id or user_id
+        or_clauses = []
+        if effective_email:
+            or_clauses.append({"candidate_email": effective_email})
+        if effective_id and effective_id != "guest":
+            or_clauses.append({"candidate_id": effective_id})
+
+        if or_clauses:
+            query["$or"] = or_clauses
+        else:
+            return []
+    elif user_role == "guest":
+        # Unauthenticated guests only see applications if explicitly queried for their email
+        if target_email or target_id:
+            or_clauses = []
+            if target_email:
+                or_clauses.append({"candidate_email": target_email})
+            if target_id and target_id != "guest":
+                or_clauses.append({"candidate_id": target_id})
+            if or_clauses:
+                query["$or"] = or_clauses
+            else:
+                return []
+        else:
+            return []
+    else:
+        # Recruiters and Admins can view all applications to review candidates, or filter by specific candidate
+        if target_email or target_id:
+            or_clauses = []
+            if target_email:
+                or_clauses.append({"candidate_email": target_email})
+            if target_id:
+                or_clauses.append({"candidate_id": target_id})
+            if or_clauses:
+                query["$or"] = or_clauses
+
     cursor = db["applications"].find(query)
-    apps = await cursor.to_list(length=100)
-    apps.sort(key=lambda x: x.get("match_score", 0), reverse=True)
+    apps = await cursor.to_list(length=300)
+    apps.sort(key=lambda x: x.get("applied_at", ""), reverse=True)
     return [_format_app(a) for a in apps]
 
 
@@ -69,8 +116,14 @@ async def submit_application(
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Target job does not exist")
 
-    cand_id = current_user.get("id", "candidate-1")
+    cand_id = current_user.get("id")
+    if not cand_id or cand_id == "guest":
+        cand_id = f"cand-{uuid.uuid4().hex[:6]}"
     cand_email = (app_in.candidate_email or current_user.get("email", "")).lower().strip()
+    cand_name = app_in.candidate_name or current_user.get("name") or "Applicant"
+
+    if not cand_email:
+        cand_email = f"candidate-{cand_id}@example.com"
 
     # Prevent duplicate applications for the same opening
     existing_app = await db["applications"].find_one({
