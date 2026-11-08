@@ -11,6 +11,7 @@ import {
   MapPinIcon
 } from "../components/Icons";
 import OpportunityCard from "../components/OpportunityCard";
+import OpportunityDetailsModal from "../components/OpportunityDetailsModal";
 import { api, INITIAL_MOCK_JOBS } from "../services/api";
 
 export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, onOpenAuth }) {
@@ -22,6 +23,7 @@ export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, 
   });
   const [opportunities, setOpportunities] = useState([]);
   const [activeCategoryTab, setActiveCategoryTab] = useState("all");
+  const [modalOpportunity, setModalOpportunity] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Search Bar State
@@ -650,7 +652,7 @@ export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, 
                 if (onSelectJob) onSelectJob(job);
               }}
               onViewDetails={(job) => {
-                if (onExploreJobs) onExploreJobs();
+                setModalOpportunity(job);
               }}
             />
           ))}
@@ -903,6 +905,18 @@ export default function LandingPage({ onExploreJobs, onHireTalent, onSelectJob, 
           </div>
         </div>
       </footer>
+
+      {/* Opportunity Details Popup Modal (Centered, Non-Pushing, Click-to-Open) */}
+      {modalOpportunity && (
+        <OpportunityDetailsModal
+          opportunity={modalOpportunity}
+          onClose={() => setModalOpportunity(null)}
+          onApply={(job) => {
+            if (onSelectJob) onSelectJob(job);
+          }}
+          isApplied={false}
+        />
+      )}
     </div>
   );
 }

@@ -11,6 +11,7 @@ import {
   ArrowUpRightIcon
 } from "../components/Icons";
 import { api, INITIAL_MOCK_JOBS } from "../services/api";
+import OpportunityDetailsModal from "../components/OpportunityDetailsModal";
 
 export default function JobBoard({
   initialCategory = "all",
@@ -35,8 +36,8 @@ export default function JobBoard({
   // Saved / Bookmark job IDs set
   const [savedJobIds, setSavedJobIds] = useState(new Set());
 
-  // Top Details View & On-the-spot Apply State
-  const [selectedTopJob, setSelectedTopJob] = useState(() => (INITIAL_MOCK_JOBS && INITIAL_MOCK_JOBS.length > 0 ? INITIAL_MOCK_JOBS[0] : null));
+  // Opportunity Details Modal & On-the-spot Apply State
+  const [modalOpportunity, setModalOpportunity] = useState(null);
   const [appliedJobIds, setAppliedJobIds] = useState(() => {
     if (user?.email?.toLowerCase() === "sumii@example.com") {
       return new Set(["opp-1"]);
@@ -232,12 +233,8 @@ export default function JobBoard({
     }
   };
 
-  const handleSelectJobForTop = (job) => {
-    setSelectedTopJob(job);
-    const topElem = document.getElementById("top-job-details-section");
-    if (topElem) {
-      topElem.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+  const handleOpenDetailsModal = (job) => {
+    setModalOpportunity(job);
   };
 
   return (
@@ -489,118 +486,6 @@ export default function JobBoard({
         {/* MAIN JOBS SECTION */}
         <main style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
-          {/* TOP DETAILS VIEW: Displays Full Opportunity Information at the Top */}
-          {selectedTopJob && (
-            <div
-              id="top-job-details-section"
-              className="card"
-              style={{
-                borderRadius: 20,
-                padding: "26px 30px",
-                border: "2px solid #3157D5",
-                boxShadow: "0 12px 36px rgba(49, 87, 213, 0.16)",
-                marginBottom: 8,
-                animation: "modalEnter 0.25s ease-out"
-              }}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 14 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 12,
-                    background: selectedTopJob.company_logo_color || "#3157D5",
-                    color: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: 900,
-                    fontSize: 20
-                  }}>
-                    {selectedTopJob.company ? selectedTopJob.company[0] : "O"}
-                  </div>
-                  <div>
-                    <h2 style={{ fontSize: 20, fontWeight: 900, color: "#0F172A", margin: 0 }}>
-                      {selectedTopJob.title}
-                    </h2>
-                    <div style={{ fontSize: 13.5, color: "#3157D5", fontWeight: 700, marginTop: 2 }}>
-                      {selectedTopJob.company} · <span style={{ color: "#64748B", fontWeight: 500 }}>{selectedTopJob.department || "Core Platform"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                  <button
-                    onClick={(e) => handleToggleSave(selectedTopJob, e)}
-                    className="btn btn-secondary"
-                    style={{ padding: "8px 14px", fontSize: 13 }}
-                  >
-                    {savedJobIds.has(selectedTopJob.id) ? "❤️ Saved" : "🤍 Save Job"}
-                  </button>
-
-                  <button
-                    onClick={(e) => handleApplyOnTheSpot(selectedTopJob, e)}
-                    className="btn btn-primary"
-                    disabled={appliedJobIds.has(selectedTopJob.id)}
-                    style={{ padding: "9px 20px", fontSize: 13 }}
-                  >
-                    {appliedJobIds.has(selectedTopJob.id) ? "✓ Applied" : "⚡ Apply Now on the Spot"}
-                  </button>
-
-                  <button
-                    onClick={() => setSelectedTopJob(null)}
-                    style={{
-                      background: "rgba(0,0,0,0.06)",
-                      border: "none",
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: "pointer",
-                      fontSize: 16,
-                      color: "#64748b"
-                    }}
-                    title="Close details preview"
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-
-              {/* Description & Requirements Strip */}
-              <p style={{ fontSize: 13.5, color: "#475569", lineHeight: 1.6, marginBottom: 16 }}>
-                {selectedTopJob.description}
-              </p>
-
-              {/* Requirements & Skills */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                {(selectedTopJob.skills || []).map((sk, idx) => (
-                  <span key={idx} className="badge badge-primary" style={{ fontSize: 11.5 }}>
-                    {sk}
-                  </span>
-                ))}
-              </div>
-
-              {/* Multi-round hiring progression preview */}
-              {selectedTopJob.interview_rounds && (
-                <div style={{ padding: "12px 16px", background: "#F8FAFC", borderRadius: 12, border: "1px solid #E2E8F0" }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#0F172A", marginBottom: 6, textTransform: "uppercase" }}>
-                    Verified Hiring Assessment Rounds:
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, fontSize: 12, color: "#475569" }}>
-                    {selectedTopJob.interview_rounds.map((r, i) => (
-                      <span key={i} style={{ background: "#FFFFFF", padding: "3px 8px", borderRadius: 6, border: "1px solid #CBD5E1" }}>
-                        {r}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           {/* Job stream count header */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 2px" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>
@@ -648,13 +533,13 @@ export default function JobBoard({
               return (
                 <div
                   key={job.id}
-                  onClick={() => handleSelectJobForTop(job)}
+                  onClick={() => handleOpenDetailsModal(job)}
                   className="card card-hover"
                   style={{
                     padding: "22px 26px",
                     borderRadius: 16,
                     cursor: "pointer",
-                    border: selectedTopJob?.id === job.id ? "1.5px solid #3157D5" : "1px solid #E2E8F0"
+                    border: modalOpportunity?.id === job.id ? "1.5px solid #1D4ED8" : "1px solid #E2E8F0"
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 14, flexWrap: "wrap" }}>
@@ -682,7 +567,7 @@ export default function JobBoard({
                             <span className="badge badge-success" style={{ fontSize: 10.5 }}>✓ Verified Partner</span>
                           )}
                         </div>
-                        <div style={{ fontSize: 13, color: "#3157D5", fontWeight: 700, marginTop: 2 }}>
+                        <div style={{ fontSize: 13, color: "#1D4ED8", fontWeight: 700, marginTop: 2 }}>
                           {job.company} · <span style={{ color: "#64748B", fontWeight: 500 }}>{job.location}</span>
                         </div>
                       </div>
@@ -728,15 +613,33 @@ export default function JobBoard({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {(job.skills || []).slice(0, 5).map((sk, i) => (
-                        <span key={i} style={{ background: "#EEF2FF", color: "#3157D5", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6 }}>
+                        <span key={i} style={{ background: "#EEF2FF", color: "#1D4ED8", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6 }}>
                           {sk}
                         </span>
                       ))}
                     </div>
 
-                    <span style={{ fontSize: 12, color: "#3157D5", fontWeight: 700 }}>
-                      View Details & Requirements →
-                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDetailsModal(job);
+                      }}
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        fontSize: 12.5,
+                        color: "#1D4ED8",
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4
+                      }}
+                    >
+                      <span>View Details & Requirements</span>
+                      <span>→</span>
+                    </button>
                   </div>
                 </div>
               );
@@ -744,6 +647,24 @@ export default function JobBoard({
           )}
         </main>
       </div>
+
+      {/* Opportunity Details Popup Modal (Centered, Non-Pushing, Click-to-Open) */}
+      {modalOpportunity && (
+        <OpportunityDetailsModal
+          opportunity={modalOpportunity}
+          onClose={() => setModalOpportunity(null)}
+          onApply={(job) => {
+            if (onApplyJob) {
+              onApplyJob(job);
+            } else {
+              handleApplyOnTheSpot(job);
+            }
+          }}
+          onToggleSave={(job) => handleToggleSave(job)}
+          isSaved={savedJobIds.has(modalOpportunity.id)}
+          isApplied={appliedJobIds.has(modalOpportunity.id)}
+        />
+      )}
     </div>
   );
 }
