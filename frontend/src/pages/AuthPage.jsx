@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SparklesIcon,
   MailIcon,
@@ -58,6 +58,30 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+
+  // Sync mode if defaultMode changes
+  useEffect(() => {
+    if (defaultMode) {
+      setMode(defaultMode);
+    }
+  }, [defaultMode]);
+
+  // Handle Escape key and body scroll lock when used as centered modal
+  useEffect(() => {
+    if (isFullScreen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape" && onClose) {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const origOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = origOverflow;
+    };
+  }, [isFullScreen, onClose]);
 
   // Password strength logic
   const getPasswordStrength = (pwd) => {
@@ -206,6 +230,7 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
   // Auth Card Inner Content
   const authCardContent = (
     <div
+      onClick={(e) => e.stopPropagation()}
       style={{
         maxWidth: 500,
         width: "100%",
@@ -1299,8 +1324,35 @@ export default function AuthPage({ isFullScreen = false, onClose, onSuccess, onC
 
   // If used as a popup modal
   return (
-    <div className="modal-overlay" onClick={onClose} style={{ zIndex: 2000 }}>
-      {authCardContent}
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "rgba(15, 23, 42, 0.72)",
+        backdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "20px"
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          maxWidth: 500,
+          width: "100%",
+          maxHeight: "92vh",
+          overflowY: "auto",
+          borderRadius: 20,
+          boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.35)",
+          animation: "modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)"
+        }}
+      >
+        {authCardContent}
+      </div>
     </div>
   );
 }

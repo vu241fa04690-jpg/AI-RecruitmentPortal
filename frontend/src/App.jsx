@@ -77,30 +77,12 @@ function MainApp() {
     showToast(`Switched view to ${newRole.toUpperCase()} mode.`);
   };
 
-  const handleRequireAuth = (mode = "register", targetJob = null) => {
-    setAuthMode(mode);
-    setIsGuestMode(false); // Instantly redirects to the full-screen Sign Up / Sign In page!
+  const handleRequireAuth = (mode = "login", targetJob = null) => {
+    setAuthConfig({ isOpen: true, mode });
     if (targetJob) {
       setApplyingJob(targetJob);
     }
   };
-
-  // FIRST PROJECT STARTING VIEW: Full-screen Login & Sign Up page if user is not logged in
-  if (!user && !isGuestMode) {
-    return (
-      <AuthPage
-        isFullScreen={true}
-        defaultMode={authMode}
-        onSuccess={() => {
-          showToast("Authenticated successfully with 256-bit JWT session.");
-        }}
-        onContinueAsGuest={() => {
-          setIsGuestMode(true);
-          showToast("Viewing Recruitment Portal as guest. Sign in anytime to apply or post.");
-        }}
-      />
-    );
-  }
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "#f4f6fa" }}>
@@ -146,8 +128,7 @@ function MainApp() {
         onOpenAuth={(mode = "login") => handleRequireAuth(mode)}
         onLogout={() => {
           logout();
-          setIsGuestMode(false); // Returns directly to full-screen Login & Sign Up page!
-          showToast("Signed out. Returning to Login page.");
+          showToast("Signed out. Switched to guest mode.");
         }}
       />
 
@@ -157,14 +138,8 @@ function MainApp() {
           <JobBoard
             initialCategory="all"
             user={user}
-            onRequireAuth={handleRequireAuth}
-            onApplyJob={(job) => {
-              if (!user) {
-                handleRequireAuth("register", job);
-              } else {
-                setApplyingJob(job);
-              }
-            }}
+            onRequireAuth={(mode = "login") => handleRequireAuth(mode)}
+            onApplyJob={(job) => setApplyingJob(job)}
             onSelectJobForMatcher={handleSelectJobForMatcher}
           />
         )}
@@ -173,14 +148,8 @@ function MainApp() {
           <JobBoard
             initialCategory="internship"
             user={user}
-            onRequireAuth={handleRequireAuth}
-            onApplyJob={(job) => {
-              if (!user) {
-                handleRequireAuth("register", job);
-              } else {
-                setApplyingJob(job);
-              }
-            }}
+            onRequireAuth={(mode = "login") => handleRequireAuth(mode)}
+            onApplyJob={(job) => setApplyingJob(job)}
             onSelectJobForMatcher={handleSelectJobForMatcher}
           />
         )}

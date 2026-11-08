@@ -452,12 +452,6 @@ export default function ResumeMatcher({
 
   // Open application details form with ATS Score attached
   const handleApplyWithScore = () => {
-    if (!user) {
-      if (onRequireAuth) {
-        onRequireAuth("register", selectedJob);
-      }
-      return;
-    }
     setIsApplyModalOpen(true);
   };
 

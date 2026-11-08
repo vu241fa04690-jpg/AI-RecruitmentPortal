@@ -132,59 +132,19 @@ export default function JobBoard({
   const internshipCount = allJobsRaw.filter(j => j.category === "internship").length;
   const jobCount = allJobsRaw.filter(j => j.category === "job").length;
 
-  // On-the-spot 1-click application opening details form
-  const handleApplyOnTheSpot = async (job, e) => {
-    if (e) e.stopPropagation();
-
-    // If user is not authenticated, redirect immediately to Signup / Sign In page!
-    if (!user) {
-      if (onRequireAuth) {
-        onRequireAuth("register", job);
-      } else if (onApplyJob) {
-        onApplyJob(job);
-      }
-      return;
+  // Open application modal directly on click without scrolling or navigating away
+  const handleApplyOnTheSpot = (job, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
     }
-
     if (onApplyJob) {
       onApplyJob(job);
-      return;
-    }
-
-    if (appliedJobIds.has(job.id)) {
-      setSpotToast(`You have already applied to ${job.company} (${job.title})!`);
-      setTimeout(() => setSpotToast(null), 3500);
-      return;
-    }
-    setSpotApplyingId(job.id);
-    try {
-      const res = await api.submitApplication({
-        job_id: job.id,
-        candidate_id: user?.id,
-        candidate_name: user?.name || "Candidate",
-        candidate_email: (user?.email || "").toLowerCase().trim(),
-        candidate_skills: user?.skills || job.skills || ["Python", "FastAPI", "React"],
-        cover_letter: "Applied directly on the spot via Recruitment Portal AI Hub.",
-        resume_name: "Candidate_Resume.pdf"
-      });
-      setAppliedJobIds(prev => new Set([...prev, job.id]));
-      setSpotToast(`🎉 Applied on the spot to ${job.company} (${job.title})! AI Match Score: ${res?.match_score || 96}%`);
-      setTimeout(() => setSpotToast(null), 4500);
-    } catch (err) {
-      console.error("On-the-spot apply failed:", err);
-    } finally {
-      setSpotApplyingId(null);
     }
   };
 
   const handleSelectJobForTop = (job) => {
     setSelectedTopJob(job);
-    const topElem = document.getElementById("top-job-details-section");
-    if (topElem) {
-      topElem.scrollIntoView({ behavior: "smooth", block: "start" });
-    } else {
-      window.scrollTo({ top: 350, behavior: "smooth" });
-    }
   };
 
   return (

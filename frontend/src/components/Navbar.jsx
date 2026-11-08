@@ -316,32 +316,34 @@ export default function Navbar({
                 className="btn"
                 onClick={() => onOpenAuth("login")}
                 style={{
-                  padding: "6px 14px",
-                  fontSize: 12,
+                  padding: "6px 16px",
+                  fontSize: 12.5,
                   fontWeight: 700,
                   background: "rgba(255, 255, 255, 0.12)",
                   color: "#ffffff",
                   border: "1px solid rgba(255, 255, 255, 0.25)",
-                  borderRadius: 8
+                  borderRadius: 8,
+                  cursor: "pointer"
                 }}
               >
-                Sign In
+                Login
               </button>
               <button
                 className="btn"
                 onClick={() => onOpenAuth("register")}
                 style={{
-                  padding: "6px 14px",
-                  fontSize: 12,
+                  padding: "6px 16px",
+                  fontSize: 12.5,
                   fontWeight: 800,
                   background: "linear-gradient(135deg, #0066cc 0%, #00b4d8 100%)",
                   color: "#ffffff",
                   borderRadius: 8,
                   boxShadow: "0 4px 12px rgba(0, 102, 204, 0.4)",
-                  border: "none"
+                  border: "none",
+                  cursor: "pointer"
                 }}
               >
-                Sign Up Free
+                Register
               </button>
             </div>
           )}
