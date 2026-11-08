@@ -12,6 +12,7 @@ import AuthPage from "./pages/AuthPage";
 import ApplicationModal from "./components/ApplicationModal";
 import PostJobModal from "./components/PostJobModal";
 import ScheduleInterviewModal from "./components/ScheduleInterviewModal";
+import AIAgentCopilot from "./components/AIAgentCopilot";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { api } from "./services/api";
 
@@ -263,6 +264,9 @@ function MainApp() {
           onSuccess={handleScheduleSuccess}
         />
       )}
+
+      {/* AI Voice Copilot Agent */}
+      <AIAgentCopilot user={user} onNavigate={(tab) => setActiveTab(tab)} />
 
       {/* Footer */}
       <footer style={{

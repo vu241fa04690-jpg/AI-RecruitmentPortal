@@ -1402,6 +1402,38 @@ export const api = {
     return newInt;
   },
 
+  agentChat: async (data) => {
+    try {
+      const res = await fetchWithTimeout(`${API_BASE_URL}/ai/agent-chat`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(data)
+      }, 5000);
+      if (res && res.ok) return await res.json();
+    } catch {}
+
+    const msg = (data.message || "").toLowerCase();
+    const uName = data.user_name || "Candidate";
+    if (msg.includes("job") || msg.includes("intern")) {
+      return {
+        reply: `Here are top recommendations on TalentAI, ${uName}:\n\n1. **Software Development Engineer Intern** at CognitiveFlow (₹55k–₹80k/mo + PPO)\n2. **AI & Generative LLM Research Intern** at DeepRecruit AI Labs (₹60k–₹85k/mo)\n3. **Full-Stack Engineering Intern** at ScaleApex (₹40k–₹60k/mo)`,
+        spoken_text: `Here are the top openings on TalentAI: Software Development Engineer Intern at CognitiveFlow, and AI Generative LLM Research Intern at DeepRecruit Labs.`,
+        action: { type: "navigate", tab: "jobs" }
+      };
+    }
+    if (msg.includes("interview") || msg.includes("question") || msg.includes("mock")) {
+      return {
+        reply: `Here is your mock technical interview question:\n\n**Question:** *Explain how asynchronous I/O operates in FastAPI using the asyncio event loop, and when should synchronous def be preferred over async def?*\n\nTake your time, then tell me your answer!`,
+        spoken_text: `Here is your mock interview question: Explain how asynchronous I/O operates in FastAPI using the asyncio event loop, and when should regular synchronous def be preferred?`,
+        action: { type: "navigate", tab: "prep" }
+      };
+    }
+    return {
+      reply: `Hello ${uName}! I am your **TalentAI Voice Copilot**. You can ask me to find jobs, conduct live mock interviews, analyze your ATS resume score, or guide you through your assessment rounds.`,
+      spoken_text: `Hello ${uName}! I am your TalentAI Voice Copilot. How can I assist you with your career or hiring today?`
+    };
+  },
+
   matchResumeAI: async (payload) => {
     try {
       const res = await fetchWithTimeout(`${API_BASE_URL}/ai/match-resume`, {

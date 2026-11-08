@@ -340,3 +340,4 @@ async def evaluate_submission(
     await db["assignment_submissions"].update_one({"_id": sub_id}, {"$set": update_fields})
     updated = await db["assignment_submissions"].find_one({"_id": sub_id})
     return _format_submission(updated)
+
