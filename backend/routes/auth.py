@@ -2,9 +2,10 @@ import base64
 import json
 import random
 import re
+import secrets
 import time
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from database import get_db
 from schemas.user import (

@@ -608,3 +608,4 @@ export default function AIAgentCopilot({ user, onNavigate }) {
     </>
   );
 }
+
